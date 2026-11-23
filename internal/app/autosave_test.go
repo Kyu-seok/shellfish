@@ -3,8 +3,11 @@ package app_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kyu-seok/shellfish/internal/app"
 )
 
 func TestQuittingSavesTheFish(t *testing.T) {
@@ -78,5 +81,69 @@ func TestABrokenSaveFileIsNotOverwrittenWhileOpen(t *testing.T) {
 
 	if raw, _ := os.ReadFile(path); string(raw) != "{not json" {
 		t.Errorf("the broken save file was overwritten with %q", raw)
+	}
+}
+
+// blockSaves makes every save to h's data folder fail, by putting a folder
+// where the save file goes, and returns a func that lets saves through again.
+func (h *harness) blockSaves() (unblock func()) {
+	h.t.Helper()
+	path := filepath.Join(h.dataDir, "fish.json")
+	if err := os.Remove(path); err != nil {
+		h.t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(path, "in-the-way"), 0o755); err != nil {
+		h.t.Fatal(err)
+	}
+	return func() {
+		if err := os.RemoveAll(path); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+}
+
+func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(80, 24)
+	unblock := h.blockSaves()
+
+	h.advance(time.Minute)
+	if h.quitRequested() || !strings.Contains(h.screen(), contentFace) {
+		t.Fatalf("a failed save closed the Tank:\n%s", h.screen())
+	}
+	if !strings.Contains(h.statusLine(), "couldn't save") {
+		t.Errorf("status line after a failed save is %q, want it to say the Fish couldn't be saved", h.statusLine())
+	}
+
+	h.clock.now = h.clock.now.Add(12 * time.Hour) // Hunger keeps rising
+	h.advance(time.Second)
+	if !strings.Contains(h.screen(), hungryFace) {
+		t.Errorf("12 hours after a failed save the Fish is not Hungry:\n%s", h.screen())
+	}
+
+	unblock()
+	h.advance(time.Minute)
+	if s := readSave(t, h.dataDir); s.Hunger < 50 {
+		t.Errorf("the next periodic save wrote Hunger %v, want at least 50", s.Hunger)
+	}
+	if strings.Contains(h.statusLine(), "couldn't save") {
+		t.Errorf("status line still reports a failed save after saving again: %q", h.statusLine())
+	}
+}
+
+func TestAFailedSaveOnQuitExitsWithTheError(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(80, 24)
+	h.blockSaves()
+
+	h.press("q")
+	if !h.quitRequested() {
+		t.Fatal("q does not quit when the save fails")
+	}
+	if h.exitStatus() == 0 {
+		t.Error("the exit status is 0 after the quit save failed")
+	}
+	if msg := h.model.(app.Model).ExitMessage(); !strings.Contains(msg, "saving Fish") {
+		t.Errorf("exit message is %q, want the save error", msg)
 	}
 }

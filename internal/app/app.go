@@ -50,7 +50,8 @@ type Model struct {
 	name          []rune // the name typed so far on the naming prompt
 	nameErr       error  // why the last name was rejected
 	fish          fish.Fish
-	err           error     // a store failure, shown instead of the Tank
+	err           error     // a failure to open the Tank, shown instead of it
+	saveErr       error     // why the last save failed, if it did
 	now           time.Time // the time of the latest tick
 	lastSaved     time.Time // when the Fish was last written to the data folder
 	lock          *store.Lock
@@ -58,6 +59,7 @@ type Model struct {
 	greeting      string        // the welcome-back greeting, if the user was away a while
 	greetUntil    time.Time     // when the greeting goes away by itself
 	foodKind      fish.FoodKind // what a click or f drops
+	quitting      bool          // the user has closed the Tank
 }
 
 // New builds the app from its dependencies. It takes the data folder's lock,
@@ -108,16 +110,22 @@ func (m Model) Init() tea.Cmd {
 }
 
 // ExitStatus is the status the process should exit with once the app quits:
-// non-zero if the launch was refused because another Tank is open.
+// non-zero if the launch was refused because another Tank is open, or if the
+// Fish could not be saved on quitting.
 func (m Model) ExitStatus() int {
-	if m.refusal != "" {
+	if m.refusal != "" || m.quitting && m.saveErr != nil {
 		return 1
 	}
 	return 0
 }
 
 // ExitMessage is what to print after the app quits, if anything.
-func (m Model) ExitMessage() string { return m.refusal }
+func (m Model) ExitMessage() string {
+	if m.quitting && m.saveErr != nil {
+		return "shellfish: " + m.saveErr.Error()
+	}
+	return m.refusal
+}
 
 // Close releases the data folder's lock. Quitting releases it too; Close is
 // safe to call again afterwards.
@@ -129,6 +137,7 @@ func (m Model) quit() (tea.Model, tea.Cmd) {
 	if m.hasFish() {
 		m = m.save(m.deps.Clock.Now())
 	}
+	m.quitting = true
 	m.Close()
 	return m, tea.Quit
 }
@@ -244,6 +253,9 @@ func (m Model) View() string {
 // keyHint teaches the controls at the right end of the status line.
 const keyHint = "click/f feed · 1-3 food · q quit"
 
+// saveFailed takes the key hint's place while the Fish can't be saved.
+const saveFailed = "⚠ couldn't save"
+
 // hintStyle is faint, which is not a colour, so it is kept in monochrome.
 var hintStyle = lipgloss.NewStyle().Faint(true)
 
@@ -254,10 +266,14 @@ var hintStyle = lipgloss.NewStyle().Faint(true)
 func (m Model) statusLine() string {
 	glyph := render.FoodGlyph(m.foodKind)
 	named := glyph + " " + m.foodKind.String()
+	hint := hintStyle.Render(keyHint)
+	if m.saveErr != nil {
+		hint = saveFailed
+	}
 	for _, food := range []string{named, glyph} {
 		facts := m.statusFacts(food)
-		if gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(keyHint) - 1; gap >= 2 {
-			return facts + strings.Repeat(" ", gap) + hintStyle.Render(keyHint) + " "
+		if gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(hint) - 1; gap >= 2 {
+			return facts + strings.Repeat(" ", gap) + hint + " "
 		}
 	}
 	return fit(m.statusFacts(named, glyph), m.width)
@@ -361,11 +377,12 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) hasFish() bool { return m.refusal == "" && !m.naming && m.err == nil }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
-// and writes it to the data folder.
+// and writes it to the data folder. A failed save leaves the Tank open, with
+// the failure on the status line, and the next periodic save tries again.
 func (m Model) save(now time.Time) Model {
 	m.fish = m.fish.CatchUp(now)
 	m.fish.LastSeen = now
 	m.lastSaved = now
-	m.err = store.Save(m.deps.DataDir, m.fish)
+	m.saveErr = store.Save(m.deps.DataDir, m.fish)
 	return m
 }
