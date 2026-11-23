@@ -53,15 +53,19 @@ const (
 	// twice the columns behind its mouth, less two, for the 19-wide koi, whose
 	// mouth is furthest from the back of its box.
 	SeaweedGap = 34
-	// SeaweedMinHeight and SeaweedMaxHeight bound a stalk's height in rows.
+	// SeaweedMinHeight and SeaweedMaxHeight bound a stalk's kelp's height in rows.
 	SeaweedMinHeight = 2
 	SeaweedMaxHeight = 5
 	// SeaweedSwayPeriod is how long a stalk takes to sway one way and back.
 	SeaweedSwayPeriod = 3.2
-	// SeaweedWidth is the columns a stalk stands in: kelp is two wide and
-	// leans up to a column either way as it sways.
-	SeaweedWidth = 4
-	// GrassHeight is the tallest a tuft of grass grows, in rows.
+	// KelpWidth is the columns a stalk's kelp stands in: it is two wide and
+	// leans up to a column either way as it sways. TuftWidth is the columns
+	// of the \|/ tuft of grass beside it, and SeaweedWidth the whole stalk's.
+	KelpWidth    = 4
+	TuftWidth    = 3
+	SeaweedWidth = KelpWidth + TuftWidth
+	// GrassHeight is the tallest a tuft of grass grows, in rows. It is no
+	// taller than SeaweedMinHeight, so the kelp beside it is never shorter.
 	GrassHeight = 2
 	// ShellClearance is the fewest columns of sand between a shell and the
 	// SeaweedWidth columns a stalk stands in, so a leaning kelp tip or a grass

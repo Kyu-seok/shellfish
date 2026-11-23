@@ -65,7 +65,7 @@ func brightness(hex string) int {
 
 func TestTheTankGrowsGreenKelpWithALighterTipAndGrassTufts(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(120, 30)
+	h.resize(80, 24)
 
 	var kelp, grass []plant
 	for _, p := range h.plants() {
@@ -77,6 +77,16 @@ func TestTheTankGrowsGreenKelpWithALighterTipAndGrassTufts(t *testing.T) {
 	}
 	if len(kelp) == 0 || len(grass) == 0 {
 		t.Fatalf("found %d green kelp cells and %d green grass cells, want some of each:\n%s", len(kelp), len(grass), h.screen())
+	}
+	// Each tuft grows right beside a stalk of kelp.
+	for _, g := range grass {
+		beside := false
+		for _, k := range kelp {
+			beside = beside || abs(g.col-k.col) <= 4
+		}
+		if !beside {
+			t.Errorf("grass at (%d, %d) grows apart from the kelp:\n%s", g.col, g.row, h.screen())
+		}
 	}
 
 	// Each stalk's top cell is its tip, lighter than the kelp below it.
@@ -111,7 +121,7 @@ func TestTheTankGrowsGreenKelpWithALighterTipAndGrassTufts(t *testing.T) {
 
 func TestSeaweedHasNoColourInMonochrome(t *testing.T) {
 	h := newHarness(t, named("Bubbles"), monochrome())
-	h.resize(120, 30)
+	h.resize(80, 24)
 	h.advance(time.Second)
 	rows := h.view()
 	for y := range floorRow(rows) {
@@ -128,7 +138,7 @@ func TestSeaweedHasNoColourInMonochrome(t *testing.T) {
 
 func TestKelpSwaysFromItsTipWhileItsBaseStaysPut(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(120, 30)
+	h.resize(80, 24)
 
 	// at lists where kelp of colour fg is drawn, row by row.
 	at := func(fg string) string {
@@ -182,7 +192,7 @@ func TestFoodRestsOnTopOfKelpAndGrass(t *testing.T) {
 	for _, kind := range []string{"kelp", "grass"} {
 		t.Run(kind, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles")) // Full, so it leaves the Food be
-			h.resize(120, 16)
+			h.resize(80, 24)
 			bottom := floorRow(h.view()) - 1
 			glyphs := kelpGlyphs
 			if kind == "grass" {
@@ -198,10 +208,10 @@ func TestFoodRestsOnTopOfKelpAndGrass(t *testing.T) {
 			if col < 0 {
 				t.Fatalf("no %s in the Tank:\n%s", kind, h.screen())
 			}
-			// The stalk's top: its highest cell, wherever it sways.
+			// The kelp's or grass's top: its highest cell, wherever it sways.
 			top := bottom
 			for _, p := range h.plants() {
-				if p.col >= col-2 && p.col <= col+2 {
+				if p.col >= col-2 && p.col <= col+2 && strings.Contains(glyphs, p.glyph) {
 					top = min(top, p.row)
 				}
 			}

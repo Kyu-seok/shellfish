@@ -81,9 +81,10 @@ const (
 )
 
 // drawStalk draws a stalk of seaweed standing on the floor row, in its
-// colours unless monochrome. Kelp is a two-column zigzag of ( and ) that
-// leans more the higher it is, so its base stays put while its tip sways.
-// Grass is a \|/ tuft whose blade on top leans as it sways.
+// colours unless monochrome: its kelp, and its tuft of grass beside it. Kelp
+// is a two-column zigzag of ( and ) that leans more the higher it is, so its
+// base stays put while its tip sways. Grass is a \|/ tuft whose blade on top
+// leans as it sways.
 func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
 	draw := func(x, y int, c rune, colour string) {
 		g.set(x, y, c, plainInk)
@@ -92,29 +93,13 @@ func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
 		}
 	}
 	lean := math.Sin(2 * math.Pi * st.Sway)
-	if st.Grass {
-		for i, c := range `\|/` {
-			draw(st.Col+i, floor-1, c, grassColour)
-		}
-		if st.Height > 1 {
-			x, c := st.Col+1, '|'
-			switch {
-			case lean < -GrassBend:
-				x, c = st.Col, '\\'
-			case lean > GrassBend:
-				x, c = st.Col+2, '/'
-			}
-			draw(x, floor-2, c, grassColour)
-		}
-		return
-	}
 	for i := range st.Height {
 		off := 0
 		if st.Height > 1 {
 			k := float64(i) / float64(st.Height-1)
 			off = int(max(-1, min(1, math.Round(KelpLean*k*k*lean))))
 		}
-		x, c := st.Col+1+off, '('
+		x, c := st.KelpCol+1+off, '('
 		if i%2 == 1 {
 			x, c = x+1, ')'
 		}
@@ -123,6 +108,20 @@ func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
 			colour = kelpTipColour
 		}
 		draw(x, floor-1-i, c, colour)
+	}
+	tuft := st.TuftCol
+	for i, c := range `\|/` {
+		draw(tuft+i, floor-1, c, grassColour)
+	}
+	if st.Tuft > 1 {
+		x, c := tuft+1, '|'
+		switch {
+		case lean < -GrassBend:
+			x, c = tuft, '\\'
+		case lean > GrassBend:
+			x, c = tuft+2, '/'
+		}
+		draw(x, floor-2, c, grassColour)
 	}
 }
 

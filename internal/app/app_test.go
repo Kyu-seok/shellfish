@@ -9,13 +9,13 @@ import (
 
 func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(40, 10)
+	h.resize(44, 10)
 
 	// The Fish starts in the middle of the water, its box 18 cells wide
-	// and 4 rows tall, leaving 11 cells either side of it in 40.
+	// and 4 rows tall, leaving 13 cells either side of it in 44.
 	fish, ok := findFish(h.rawView())
-	if !ok || !fish.intact || fish.left != 11 || fish.top != 2 {
-		t.Fatalf("the Fish is at %+v, want whole with its box's top-left at (11, 2):\n%s", fish, h.screen())
+	if !ok || !fish.intact || fish.left != 13 || fish.top != 2 {
+		t.Fatalf("the Fish is at %+v, want whole with its box's top-left at (13, 2):\n%s", fish, h.screen())
 	}
 	want := []string{
 		"", // the surface
@@ -24,10 +24,10 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"",
 		"",
 		"",
-		"                                     )",
-		"                 @              Ѡ    (", // shells on the sand
+		"                                       /   )",
+		"                  @              Ѡ   \\|/ (", // shells, grass and kelp on the sand
 		"", // the sand
-		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · • pellet",
+		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days",
 	}
 	got := h.view()
 	if len(got) != len(want) {

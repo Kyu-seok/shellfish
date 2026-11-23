@@ -88,12 +88,14 @@ type Meal struct {
 	Col, Row int
 }
 
-// Stalk is one piece of seaweed growing up from the floor: kelp, or a short
-// tuft of grass. It stands in SeaweedWidth cells from Col, and sways within
-// them.
+// Stalk is one clump of seaweed growing up from the floor: a stalk of kelp
+// in the KelpWidth columns from KelpCol, and a short tuft of grass right
+// beside it in the TuftWidth columns from TuftCol. It sways within those
+// columns.
 type Stalk struct {
-	Col, Height int
-	Grass       bool
+	KelpCol, TuftCol int
+	// Height is how many rows the kelp stands, and Tuft how many the grass.
+	Height, Tuft int
 	// Sway is where the stalk is in its sway, in turns from 0 up to 1. It
 	// moves on continuously.
 	Sway float64
@@ -121,9 +123,40 @@ type food struct {
 }
 
 type stalk struct {
-	col, height int
-	grass       bool
-	phase       float64 // where in its sway it starts, in turns
+	col          int     // the first of the SeaweedWidth columns it stands in
+	height, tuft int     // the kelp's height and the grass's, in rows
+	tuftLeft     bool    // the grass is left of the kelp, not right
+	phase        float64 // where in its sway it starts, in turns
+}
+
+// kelpCol and tuftCol are the first columns the kelp and the grass stand in.
+func (st stalk) kelpCol() int {
+	if st.tuftLeft {
+		return st.col + TuftWidth
+	}
+	return st.col
+}
+
+func (st stalk) tuftCol() int {
+	if st.tuftLeft {
+		return st.col
+	}
+	return st.col + KelpWidth
+}
+
+// heightIn is how high the stalk stands in the columns from c0 to c1: the
+// kelp's height over its columns, the tuft's over the grass's, and 0 if the
+// stalk stands in none of them.
+func (st stalk) heightIn(c0, c1 int) int {
+	over := func(col, width int) bool { return c0 < col+width && c1 >= col }
+	h := 0
+	if over(st.kelpCol(), KelpWidth) {
+		h = st.height
+	}
+	if over(st.tuftCol(), TuftWidth) {
+		h = max(h, st.tuft)
+	}
+	return h
 }
 
 // mode is what the Fish is doing.
@@ -230,13 +263,11 @@ func (t *Tank) DropNearTop(k fish.FoodKind) bool {
 }
 
 // restRow is the row Food comes to rest on in column col: just above the
-// floor, or on top of a stalk of seaweed.
+// floor, or on top of the kelp or grass of a stalk of seaweed.
 func (t *Tank) restRow(col int) int {
 	row := t.waterRows() - 1
 	for _, st := range t.seaweed {
-		if col >= st.col && col < st.col+SeaweedWidth {
-			row = t.waterRows() - 1 - st.height
-		}
+		row -= st.heightIn(col, col)
 	}
 	return max(row, SurfaceRows)
 }
@@ -490,10 +521,11 @@ func (t *Tank) Snapshot() Snapshot {
 	}
 	for _, st := range t.seaweed {
 		snap.Seaweed = append(snap.Seaweed, Stalk{
-			Col:    st.col,
-			Height: st.height,
-			Grass:  st.grass,
-			Sway:   math.Mod(t.clock/SeaweedSwayPeriod+st.phase, 1),
+			KelpCol: st.kelpCol(),
+			TuftCol: st.tuftCol(),
+			Height:  st.height,
+			Tuft:    st.tuft,
+			Sway:    math.Mod(t.clock/SeaweedSwayPeriod+st.phase, 1),
 		})
 	}
 	t.snapshotDecor(&snap)
@@ -642,8 +674,7 @@ func (t *Tank) boxFits(x, y float64) bool {
 		return false
 	}
 	for _, st := range t.seaweed {
-		overlaps := st.col <= col+t.body.Width-1 && st.col+SeaweedWidth-1 >= col
-		if overlaps && bottom >= t.waterRows()-st.height {
+		if h := st.heightIn(col, col+t.body.Width-1); h > 0 && bottom >= t.waterRows()-h {
 			return false
 		}
 	}
@@ -711,18 +742,17 @@ func (t *Tank) growSeaweed() {
 		gaps[i]++
 	}
 	col := 0
-	for i, gap := range gaps[:len(gaps)-1] {
+	for _, gap := range gaps[:len(gaps)-1] {
 		col += gap
-		st := stalk{
+		t.seaweed = append(t.seaweed, stalk{
 			col:    col,
 			height: shortest + t.rand.IntN(tallest-shortest+1),
-			phase:  t.rand.Float64(),
-			grass:  i%3 == 1, // every third stalk, from the second, is grass
-		}
-		if st.grass {
-			st.height = min(st.height, GrassHeight)
-		}
-		t.seaweed = append(t.seaweed, st)
+			tuft:   min(GrassHeight, tallest),
+			// The grass faces the middle of the Tank, so the Fish has room
+			// to reach Food resting on it, even by a wall.
+			tuftLeft: 2*col+SeaweedWidth > t.width,
+			phase:    t.rand.Float64(),
+		})
 		col += SeaweedWidth
 	}
 }
