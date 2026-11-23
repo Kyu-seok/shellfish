@@ -138,6 +138,10 @@ var energies = map[fish.Mood]energy{
 // the bottom, that a Starving Fish keeps to.
 const LowWater = 0.4
 
+// DroopSpeed is the top speed at which a Starving Fish sinks to the lower
+// part of the Tank. It is scaled by VerticalScale like any vertical speed.
+const DroopSpeed = 8.0
+
 // Blinking, bubbles, hearts and notes.
 const (
 	// BlinkMin and BlinkMax bound the time from one blink to the next, and

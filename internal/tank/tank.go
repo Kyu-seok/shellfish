@@ -192,6 +192,7 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	f := &t.fish
 	f.bob += s * 2 * math.Pi / BobPeriod
 	t.chase(full)
+	t.droop()
 	switch f.mode {
 	case hovering:
 		f.vx = approach(f.vx, 0, Accel*s)
@@ -452,11 +453,7 @@ func (t *Tank) startTrip() {
 			return
 		}
 	}
-	lowest := float64(t.waterRows() - FishHeight)
-	highest := 0.0
-	if e.low {
-		highest = lowest * (1 - LowWater)
-	}
+	highest, lowest := t.swimRange(e.low)
 	for range TargetTries {
 		tx := t.rand.Float64() * float64(t.width-FishWidth)
 		ty := between(t.rand, highest, lowest)
@@ -465,16 +462,36 @@ func (t *Tank) startTrip() {
 			return
 		}
 	}
-	if e.low && f.y < highest {
-		// Nowhere low it can swim to in a straight line: sink where it is.
-		for ty := lowest; ty >= highest; ty-- {
-			if t.pathClear(f.x, f.y, f.x, ty) {
-				t.setOff(f.x, ty, CruiseSpeed*e.speed, Accel*e.speed)
-				return
-			}
+	f.timer = 1
+}
+
+// swimRange is the highest and lowest the Fish's top wanders between: the
+// whole water, or only the bottom LowWater of it when low.
+func (t *Tank) swimRange(low bool) (highest, lowest float64) {
+	lowest = float64(t.waterRows() - FishHeight)
+	if low {
+		highest = lowest * (1 - LowWater)
+	}
+	return highest, lowest
+}
+
+// droop sends a Starving Fish that is above the lower part of the Tank, and
+// not going for Food or already on its way down, straight down there at
+// DroopSpeed, without pausing first.
+func (t *Tank) droop() {
+	f := &t.fish
+	e := energies[t.mood]
+	highest, lowest := t.swimRange(e.low)
+	if !e.low || f.chasing || f.mode == turning || f.y >= highest ||
+		f.mode == swimming && f.ty >= highest {
+		return
+	}
+	for ty := lowest; ty >= highest; ty-- {
+		if t.pathClear(f.x, f.y, f.x, ty) {
+			t.setOff(f.x, ty, DroopSpeed, Accel)
+			return
 		}
 	}
-	f.timer = 1
 }
 
 // hoverTime is how long the Fish pauses between trips: longer the worse it

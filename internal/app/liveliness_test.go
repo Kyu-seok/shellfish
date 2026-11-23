@@ -1,6 +1,8 @@
 package app_test
 
 import (
+	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"testing"
@@ -44,22 +46,45 @@ func (h *harness) frames(d time.Duration) [][]string {
 	return out
 }
 
+// droopSettle is how long a Starving Fish may take to droop to the lower
+// part of the Tank from anywhere in it.
+const droopSettle = 4 * time.Second
+
+// checkLow fails the test if the Fish rises out of the lower 40% of the rows
+// its top can reach in any of seen. Its bob may lift it one row more.
+func checkLow(t *testing.T, h *harness, seen []sighting, about string) {
+	t.Helper()
+	lowestTop := floorRow(h.view()) - 3 // a Fish resting just above the sand
+	highest := int(math.Ceil(0.6*float64(lowestTop))) - 1
+	for i, s := range seen {
+		if s.top < highest {
+			t.Fatalf("%s, frame %d: a Starving Fish swam up to row %d, above the lower 40%% of the water (row %d):\n%s",
+				about, i, s.top, highest, h.screen())
+		}
+	}
+}
+
 func TestAStarvingFishStaysLowInTheTank(t *testing.T) {
 	sizes := []struct{ w, h int }{{80, 24}, {40, 14}, {60, 18}}
 	for seed := range uint64(6) {
 		size := sizes[seed%uint64(len(sizes))]
 		h := inMood(t, "Starving", withSeed(seed))
 		h.resize(size.w, size.h)
-		h.watch(15 * time.Second) // time to droop from the middle of the Tank
+		h.watch(droopSettle) // time to droop from the middle of the Tank
 
-		floor := floorRow(h.view())
-		lowestTop := floor - 3 // a Fish resting just above the sand
-		for i, s := range h.watch(45 * time.Second) {
-			if 2*s.top < lowestTop {
-				t.Fatalf("seed %d, %dx%d, frame %d: a Starving Fish swam up to row %d, in the top half of the water:\n%s",
-					seed, size.w, size.h, i, s.top, h.screen())
-			}
-		}
+		checkLow(t, h, h.watch(45*time.Second), fmt.Sprintf("seed %d, %dx%d", seed, size.w, size.h))
+	}
+}
+
+func TestAFishDroopsAsSoonAsItIsStarving(t *testing.T) {
+	for seed := range uint64(4) {
+		h := inMood(t, "Hungry", withSeed(seed)) // Hunger 50
+		h.resize(80, 24)
+		h.watch(10 * time.Second)                    // let it wander anywhere
+		h.clock.now = h.clock.now.Add(8 * time.Hour) // Hunger 83: Starving
+		h.watch(droopSettle)
+
+		checkLow(t, h, h.watch(10*time.Second), fmt.Sprintf("seed %d", seed))
 	}
 }
 
@@ -200,16 +225,21 @@ func TestAContentFishShowsHeartsAndNotesNowAndThen(t *testing.T) {
 // newBubbles counts the bubbles in cur that appeared out of nowhere in the
 // water, rather than rising from the cell below them or from behind
 // something: bubbles blown by the Fish. Bubbles rising from the floor first
-// show on the lowest row of water, which is left out.
+// show on the lowest row of water, which is left out. The Fish's box hides
+// what is behind it even where its drawing shows a space.
 func newBubbles(prev, cur []string) (n int, glyphs []string) {
 	floor := floorRow(cur)
+	fish, seen := findFish(prev)
+	hidden := func(x, y int) bool {
+		return seen && x >= fish.left && x < fish.left+fishBoxWidth && y >= fish.top && y < fish.top+3
+	}
 	for y := 0; y < floor-1; y++ {
 		was, below, now := cells(prev[y]), cells(prev[y+1]), cells(cur[y])
 		for x, c := range now {
 			if !isBubble(c) {
 				continue
 			}
-			if x < len(was) && was[x] != " " || x < len(below) && below[x] != " " {
+			if x < len(was) && was[x] != " " || x < len(below) && below[x] != " " || hidden(x, y) || hidden(x, y+1) {
 				continue // it rose from there, or was hidden behind something
 			}
 			n++

@@ -172,6 +172,9 @@ type sighting struct {
 	intact     bool   // all three rows of the drawing are whole and in place
 }
 
+// fishBoxWidth is how many cells wide the box the Fish is drawn in is.
+const fishBoxWidth = 11
+
 // The Fish's back and belly, the same either way it faces.
 const (
 	fishBack  = ".-~~-."
