@@ -23,9 +23,26 @@ var foodGlyphs = map[fish.FoodKind]rune{
 // FoodGlyph is how Food of kind k is drawn, so it can be shown elsewhere.
 func FoodGlyph(k fish.FoodKind) string { return string(foodGlyphs[k]) }
 
+// EatingFace is the Fish's face, whatever its Mood, just before it eats.
+const EatingFace = "◕ o"
+
+// BlinkFace is the Fish's face, whatever its Mood, while it blinks.
+const BlinkFace = "- ᴗ"
+
+// bubbleGlyphs are a bubble's sizes, smallest first.
+var bubbleGlyphs = [3]rune{'°', 'o', 'O'}
+
+// flourishGlyphs is how each heart or note is drawn.
+var flourishGlyphs = map[tank.FlourishKind]rune{
+	tank.Heart: '♥',
+	tank.Note:  '♪',
+}
+
 // Look is how the Fish looks right now.
 type Look struct {
-	// Face is its eye and mouth as it faces right, such as "◕ ᴗ".
+	// Face is its eye and mouth for its Mood as it faces right, such as
+	// "◕ ᴗ". It gives way to EatingFace just before the Fish eats, then to
+	// BlinkFace while it blinks.
 	Face string
 	// Colour is the Fish's colour, such as "#FFB3BA". Empty draws it
 	// without colour.
@@ -46,8 +63,9 @@ func fishSprite(face, tail string) [tank.FishHeight]string {
 // tails are the tail's two frames facing right. It swishes between them.
 var tails = [2]string{"><", ">-"}
 
-// Tank draws the Tank as rows of exactly s.Width cells: water, seaweed, Food
-// and the Fish above a sandy floor. The Fish swims in front of the Food.
+// Tank draws the Tank as rows of exactly s.Width cells: water, bubbles,
+// hearts and notes, seaweed, Food and the Fish above a sandy floor, each in
+// front of the ones before it.
 func Tank(s tank.Snapshot, look Look) []string {
 	if s.Width <= 0 || s.Height <= 0 {
 		return nil
@@ -56,6 +74,16 @@ func Tank(s tank.Snapshot, look Look) []string {
 	floor := s.Height - 1
 	for x := range s.Width {
 		g.set(x, floor, sand, plainInk)
+	}
+	for _, b := range s.Bubbles {
+		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
+	}
+	for _, fl := range s.Flourishes {
+		in := fishInk
+		if fl.Fading {
+			in = faintInk
+		}
+		g.set(fl.Col, fl.Row, flourishGlyphs[fl.Kind], in)
 	}
 	for _, st := range s.Seaweed {
 		for i := range st.Height {
@@ -74,12 +102,24 @@ func Tank(s tank.Snapshot, look Look) []string {
 		}
 		g.set(fd.Col, fd.Row, foodGlyphs[fd.Kind], in)
 	}
-	drawFish(g, s.Fish, look.Face)
+	drawFish(g, s.Fish, face(s.Fish, look.Face))
 	style := lipgloss.NewStyle()
 	if look.Colour != "" {
 		style = style.Foreground(lipgloss.Color(look.Colour))
 	}
 	return g.rows(style)
+}
+
+// face is the face the Fish wears: eating comes first, then blinking, then
+// its Mood.
+func face(f tank.Fish, mood string) string {
+	switch {
+	case f.MouthOpen:
+		return EatingFace
+	case f.Blinking:
+		return BlinkFace
+	}
+	return mood
 }
 
 func drawFish(g grid, f tank.Fish, face string) {

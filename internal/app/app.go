@@ -150,7 +150,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.fish = m.fish.CatchUp(m.now)
 		}
 		if m.tank != nil {
-			if meals := m.tank.Step(FrameInterval, !m.hasFish() || m.fish.Full()); len(meals) > 0 {
+			if meals := m.tank.Step(FrameInterval, m.fish.Mood(), !m.hasFish() || m.fish.Full()); len(meals) > 0 {
 				for _, meal := range meals {
 					m.fish = m.fish.Eat(meal.Kind)
 				}
@@ -204,9 +204,6 @@ var faces = map[fish.Mood]string{
 	fish.Starving: "; ﹏",
 }
 
-// eatingFace is the Fish's face, whatever its Mood, just before it eats.
-const eatingFace = "◕ o"
-
 // tankShown reports whether the Tank is open and drawn, so Food can be
 // dropped into it.
 func (m Model) tankShown() bool {
@@ -233,9 +230,6 @@ func (m Model) View() string {
 	}
 	snap := m.tank.Snapshot()
 	look := render.Look{Face: faces[m.fish.Mood()]}
-	if snap.Fish.MouthOpen {
-		look.Face = eatingFace
-	}
 	if !m.deps.Monochrome {
 		look.Colour = string(m.fish.Colour)
 	}

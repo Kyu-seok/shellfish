@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -164,17 +165,82 @@ func (h *harness) exitStatus() int {
 
 // sighting is where the Fish was seen in one rendered frame.
 type sighting struct {
-	left, top  int  // top-left cell of the Fish's 10×3 box
+	left, top  int  // top-left cell of the Fish's box
 	facingLeft bool // the drawing is mirrored
 	tail       string
-	intact     bool // all three rows of the drawing are whole and in place
+	face       string // as it would face right, such as "◕ ᴗ"
+	intact     bool   // all three rows of the drawing are whole and in place
 }
 
-// Fish drawings, row by row, without the tail. Spaces are see-through.
-var (
-	rightFacing = [3]string{"   .-~~-. ", "  (  ◕ ᴗ )", "   `-..-' "}
-	leftFacing  = [3]string{" .-~~-.   ", "( ᴗ ◕  )  ", " `-..-'   "}
+// The Fish's back and belly, the same either way it faces.
+const (
+	fishBack  = ".-~~-."
+	fishBelly = "`-..-'"
 )
+
+// cells splits a row into its terminal cells. A two-cell character fills
+// its first cell and leaves "" in the second.
+func cells(row string) []string {
+	var out []string
+	for _, c := range row {
+		out = append(out, string(c))
+		if ansi.StringWidth(string(c)) == 2 {
+			out = append(out, "")
+		}
+	}
+	return out
+}
+
+// cellsMatch reports whether row holds want starting at cell x.
+func cellsMatch(row []string, x int, want string) bool {
+	w := cells(want)
+	if x < 0 || x+len(w) > len(row) {
+		return false
+	}
+	return slices.Equal(row[x:x+len(w)], w)
+}
+
+// findFish looks for the Fish's back and reads the drawing below it: its
+// face between its fins, its belly and its tail.
+func findFish(rows []string) (sighting, bool) {
+	for y := 0; y+2 < len(rows); y++ {
+		top := cells(rows[y])
+		for x := range top {
+			if !cellsMatch(top, x, fishBack) {
+				continue
+			}
+			mid, low := cells(rows[y+1]), cells(rows[y+2])
+			if x < 1 || mid[x-1] != "(" {
+				continue
+			}
+			// Between its fins: the face, then a space and ")".
+			end := slices.Index(mid[x:], ")")
+			if end < 0 {
+				continue
+			}
+			inner := strings.Join(mid[x:x+end], "")
+			s := sighting{top: y}
+			var tailAt int
+			if x >= 3 && mid[x-3] == ">" && (mid[x-2] == "<" || mid[x-2] == "-") {
+				s.left, tailAt = x-3, x-3
+				s.intact = strings.HasPrefix(inner, "  ") && strings.HasSuffix(inner, " ") && !strings.HasSuffix(inner, "  ")
+				s.face = strings.TrimSpace(inner)
+			} else {
+				s.facingLeft, s.left, tailAt = true, x-1, x+end+1
+				s.intact = strings.HasPrefix(inner, " ") && !strings.HasPrefix(inner, "  ") && strings.HasSuffix(inner, "  ")
+				f := strings.Fields(inner)
+				slices.Reverse(f)
+				s.face = strings.Join(f, " ")
+			}
+			s.intact = s.intact && cellsMatch(low, x, fishBelly)
+			if tailAt+2 <= len(mid) {
+				s.tail = mid[tailAt] + mid[tailAt+1]
+			}
+			return s, true
+		}
+	}
+	return sighting{}, false
+}
 
 // floorRow is the index of the sandy floor: the last row that is all sand.
 func floorRow(rows []string) int {
@@ -184,48 +250,6 @@ func floorRow(rows []string) int {
 		}
 	}
 	return -1
-}
-
-// findFish looks for the Fish's eye and reads the drawing around it.
-func findFish(rows []string) (sighting, bool) {
-	for y, row := range rows {
-		cells := []rune(row)
-		for x, c := range cells {
-			if c != '◕' {
-				continue
-			}
-			s := sighting{top: y - 1}
-			var want [3]string
-			if x >= 2 && cells[x-1] == ' ' && cells[x-2] == ' ' && x >= 3 && cells[x-3] == '(' {
-				s.left, want = x-5, rightFacing
-			} else {
-				s.facingLeft, s.left, want = true, x-4, leftFacing
-			}
-			s.intact = s.left >= 0 && s.top >= 0 && y+1 < len(rows)
-			if s.intact {
-				for i := range 3 {
-					line := []rune(rows[s.top+i])
-					for j, w := range []rune(want[i]) {
-						if w == ' ' {
-							continue
-						}
-						if s.left+j >= len(line) || line[s.left+j] != w {
-							s.intact = false
-						}
-					}
-				}
-			}
-			tailAt := s.left
-			if s.facingLeft {
-				tailAt = s.left + 8
-			}
-			if tailAt >= 0 && tailAt+2 <= len(cells) {
-				s.tail = string(cells[tailAt : tailAt+2])
-			}
-			return s, true
-		}
-	}
-	return sighting{}, false
 }
 
 // seaweedCells counts the seaweed drawn in a frame.

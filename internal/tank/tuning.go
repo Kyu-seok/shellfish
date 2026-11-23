@@ -111,3 +111,63 @@ const (
 	// predicts where the Food will be when the Fish gets there.
 	InterceptSteps = 3
 )
+
+// energy is how lively the Fish is in one Mood.
+type energy struct {
+	// speed scales its top speed and acceleration when it wanders or darts.
+	speed float64
+	// dartChance is the chance that a trip is a quick dart.
+	dartChance float64
+	// pause scales how long it hovers between trips.
+	pause float64
+	// low keeps its wandering in the lower part of the Tank: the bottom
+	// LowWater of the rows it can swim in.
+	low bool
+}
+
+// energies is how lively the Fish is in each Mood: brisk when Content,
+// slower when Hungry, and barely moving, low in the Tank, when Starving.
+// Going for Food is as eager in any Mood.
+var energies = map[fish.Mood]energy{
+	fish.Content:  {speed: 1, dartChance: DartChance, pause: 1},
+	fish.Hungry:   {speed: 0.5, dartChance: DartChance / 4, pause: 2},
+	fish.Starving: {speed: 0.25, dartChance: 0, pause: 3, low: true},
+}
+
+// LowWater is the share of the rows the Fish can swim in, counted up from
+// the bottom, that a Starving Fish keeps to.
+const LowWater = 0.4
+
+// Blinking, bubbles, hearts and notes.
+const (
+	// BlinkMin and BlinkMax bound the time from one blink to the next, and
+	// BlinkTime is how long the eyes stay shut.
+	BlinkMin  = 3.0
+	BlinkMax  = 6.0
+	BlinkTime = 0.15
+
+	// BubbleRise is how fast bubbles rise, in rows per second. A bubble is
+	// small until it has risen BubbleMedium rows, and large after
+	// BubbleLarge.
+	BubbleRise   = 2.5
+	BubbleMedium = 1.5
+	BubbleLarge  = 4.0
+	// AmbientMin and AmbientMax bound the time between bubbles rising from
+	// the floor.
+	AmbientMin = 0.6
+	AmbientMax = 2.0
+	// PuffMin and PuffMax bound the time between bubbles blown by a Content
+	// Fish.
+	PuffMin = 1.5
+	PuffMax = 4.0
+
+	// FlourishRise is how fast a heart or note floats up, in rows per
+	// second. It lasts FlourishLife, fading for the last FlourishFade.
+	FlourishRise = 1.2
+	FlourishLife = 2.5
+	FlourishFade = 1.0
+	// NoteMin and NoteMax bound the time between the hearts and notes a
+	// Content Fish shows now and then.
+	NoteMin = 6.0
+	NoteMax = 15.0
+)

@@ -19,6 +19,9 @@ type Snapshot struct {
 	Fish          Fish
 	Seaweed       []Stalk
 	Food          []Food
+	Bubbles       []Bubble
+	// Flourishes are the hearts and notes floating up from the Fish.
+	Flourishes []Flourish
 }
 
 // Fish is where the Fish is drawn.
@@ -30,6 +33,8 @@ type Fish struct {
 	TailUp bool
 	// MouthOpen is set just before the Fish eats the Food it is going for.
 	MouthOpen bool
+	// Blinking is set while its eyes are shut.
+	Blinking bool
 }
 
 // Food is one piece of Food in the Tank.
@@ -64,6 +69,8 @@ type Tank struct {
 	fish          swimmer
 	seaweed       []stalk
 	food          []food
+	mood          fish.Mood // how the Fish feels, which sets its energy
+	decor         decor
 }
 
 type food struct {
@@ -113,6 +120,9 @@ func New(r *rand.Rand, width, height int) *Tank {
 	t.fish.x = float64((t.width - FishWidth + 1) / 2) // centres a 10-cell drawing
 	t.fish.y = float64((t.waterRows() - FishHeight) / 2)
 	t.keepFishInside()
+	// Decorations draw from their own source, seeded last so the seaweed is
+	// the same as without them.
+	t.decor = newDecor(rand.New(rand.NewPCG(r.Uint64(), r.Uint64())))
 	return t
 }
 
@@ -122,6 +132,7 @@ func (t *Tank) Resize(width, height int) {
 	t.width, t.height = width, height
 	t.growSeaweed()
 	t.keepFishInside()
+	t.trimDecor()
 	t.fish.mode, t.fish.timer, t.fish.chasing = hovering, 0, false
 	t.food = slices.DeleteFunc(t.food, func(fd food) bool { return int(fd.x) >= t.width })
 	for i := range t.food {
@@ -167,13 +178,16 @@ func (t *Tank) restRow(col int) int {
 	return max(row, 0)
 }
 
-// Step advances the simulation by dt. A Fish that isn't Full goes for the
-// nearest Food it can reach and eats it; a Full one ignores Food. Step
-// returns what the Fish ate, at most one piece, so the caller can tell
-// whether it is Full before the next step.
-func (t *Tank) Step(dt time.Duration, full bool) []Meal {
+// Step advances the simulation by dt for a Fish in mood, which sets how
+// lively it is. A Fish that isn't Full goes for the nearest Food it can
+// reach and eats it; a Full one ignores Food. Step returns what the Fish
+// ate, at most one piece, so the caller can tell whether it is Full before
+// the next step.
+func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	s := dt.Seconds()
 	t.clock += s
+	t.mood = mood
+	t.decorate(s, mood)
 	t.settleFood(s)
 	f := &t.fish
 	f.bob += s * 2 * math.Pi / BobPeriod
@@ -207,7 +221,7 @@ func (t *Tank) Step(dt time.Duration, full bool) []Meal {
 			ahead = -ahead
 		}
 		if ahead < ArriveDistance && math.Abs(f.ty-f.y) < ArriveDistance || f.timer > MaxTrip {
-			f.mode, f.timer = hovering, between(t.rand, HoverMin, HoverMax)
+			f.mode, f.timer = hovering, t.hoverTime()
 		}
 	}
 	t.move(s)
@@ -215,7 +229,11 @@ func (t *Tank) Step(dt time.Duration, full bool) []Meal {
 	if full {
 		return nil
 	}
-	return t.eat()
+	meals := t.eat()
+	for _, m := range meals {
+		t.ate(m)
+	}
+	return meals
 }
 
 // settleFood sinks Food towards where it comes to rest, and takes away Food
@@ -245,7 +263,7 @@ func (t *Tank) chase(full bool) {
 	if !ok {
 		if f.chasing {
 			f.chasing = false
-			f.mode, f.timer = hovering, between(t.rand, HoverMin, HoverMax)/2
+			f.mode, f.timer = hovering, t.hoverTime()/2
 		}
 		return
 	}
@@ -391,7 +409,7 @@ func (t *Tank) Snapshot() Snapshot {
 		Height: t.height,
 		Fish: Fish{
 			Col:        int(math.Round(f.x)),
-			Row:        int(math.Round(f.y + BobAmplitude*math.Sin(f.bob))),
+			Row:        int(t.fishRow()),
 			FacingLeft: f.facingLeft,
 			TailUp:     int(f.tail)%2 == 1,
 			MouthOpen:  f.mouthOpen,
@@ -412,14 +430,17 @@ func (t *Tank) Snapshot() Snapshot {
 			Sway:   int(t.clock*2/SeaweedSwayPeriod+st.phase)%2 == 1,
 		})
 	}
+	t.snapshotDecor(&snap)
 	return snap
 }
 
 // startTrip picks somewhere to swim to: now and then a quick dart ahead,
-// otherwise a cruise to anywhere in the Tank.
+// otherwise a cruise to anywhere in the Tank, or anywhere low in it for a
+// Starving Fish. How fast it goes depends on its Mood.
 func (t *Tank) startTrip() {
 	f := &t.fish
-	if t.rand.Float64() < DartChance {
+	e := energies[t.mood]
+	if t.rand.Float64() < e.dartChance {
 		dir := 1.0
 		if f.facingLeft {
 			dir = -1
@@ -427,19 +448,39 @@ func (t *Tank) startTrip() {
 		tx := f.x + dir*between(t.rand, DartMin, DartMax)
 		ty := f.y + between(t.rand, -DartRise, DartRise)
 		if t.pathClear(f.x, f.y, tx, ty) {
-			t.setOff(tx, ty, DartSpeed, DartAccel)
+			t.setOff(tx, ty, DartSpeed*e.speed, DartAccel*e.speed)
 			return
 		}
+	}
+	lowest := float64(t.waterRows() - FishHeight)
+	highest := 0.0
+	if e.low {
+		highest = lowest * (1 - LowWater)
 	}
 	for range TargetTries {
 		tx := t.rand.Float64() * float64(t.width-FishWidth)
-		ty := t.rand.Float64() * float64(t.waterRows()-FishHeight)
+		ty := between(t.rand, highest, lowest)
 		if t.pathClear(f.x, f.y, tx, ty) {
-			t.setOff(tx, ty, CruiseSpeed, Accel)
+			t.setOff(tx, ty, CruiseSpeed*e.speed, Accel*e.speed)
 			return
 		}
 	}
+	if e.low && f.y < highest {
+		// Nowhere low it can swim to in a straight line: sink where it is.
+		for ty := lowest; ty >= highest; ty-- {
+			if t.pathClear(f.x, f.y, f.x, ty) {
+				t.setOff(f.x, ty, CruiseSpeed*e.speed, Accel*e.speed)
+				return
+			}
+		}
+	}
 	f.timer = 1
+}
+
+// hoverTime is how long the Fish pauses between trips: longer the worse it
+// feels.
+func (t *Tank) hoverTime() float64 {
+	return between(t.rand, HoverMin, HoverMax) * energies[t.mood].pause
 }
 
 // setOff starts a trip to tx, ty, turning around first if it is behind.

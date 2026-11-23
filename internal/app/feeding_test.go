@@ -181,7 +181,16 @@ func TestEatingNeverTakesHungerBelowFull(t *testing.T) {
 
 func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 	h := hungerAfter(t, 12*time.Hour) // Hungry
-	h.press("f")
+	fish, ok := findFish(h.view())
+	if !ok {
+		t.Fatalf("no Fish in the Tank:\n%s", h.screen())
+	}
+	// Drop the Food at the top, across the Tank from the Fish.
+	col := 5
+	if fish.left < 40 {
+		col = 74
+	}
+	h.click(col, 0)
 
 	_, frames := h.meal(30 * time.Second)
 	opened := -1
@@ -207,8 +216,8 @@ func TestMoodAndFaceUpdateTheMomentTheFishEats(t *testing.T) {
 	h.press("f")
 
 	h.meal(30 * time.Second)
-	if screen := h.screen(); !strings.Contains(screen, contentFace) || strings.Contains(screen, hungryFace) {
-		t.Errorf("right after a worm the Fish does not look Content:\n%s", screen)
+	if fish, ok := findFish(h.view()); !ok || fish.face != contentFace {
+		t.Errorf("right after a worm the Fish does not look Content:\n%s", h.screen())
 	}
 	if !strings.Contains(h.statusLine(), "Hunger ▱▱▱▱▱▱▱▱▱▱") {
 		t.Errorf("right after a worm the status line is %q", h.statusLine())
