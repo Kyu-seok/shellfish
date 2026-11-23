@@ -35,6 +35,9 @@ const (
 	// a pause outlasts a whole bob even after the Fish brakes.
 	BobAmplitude = 0.6
 	BobPeriod    = 1.6
+	// SurfaceRows is how many rows at the top of the Tank are the water's surface.
+	// The Fish, Food, bubbles, hearts and notes all stay below them.
+	SurfaceRows = 1
 	// RiseStep is how far, in rows, each try rises when looking for a place
 	// above the seaweed where the Fish's mouth reaches Food.
 	RiseStep = 0.25
@@ -58,6 +61,9 @@ const (
 	SeaweedWidth = 4
 	// GrassHeight is the tallest a tuft of grass grows, in rows.
 	GrassHeight = 2
+	// ShellClearance is the fewest columns of sand between a shell and a stalk,
+	// so a swaying kelp tip or a grass tuft never stands on a shell.
+	ShellClearance = 3
 	// FishClearance is the rows kept free above the tallest stalk so the Fish
 	// can always swim over it.
 	FishClearance = 2

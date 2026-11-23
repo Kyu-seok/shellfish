@@ -79,10 +79,10 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 	for i := range d.bubbles {
 		d.bubbles[i].y -= BubbleRise * s
 	}
-	d.bubbles = slices.DeleteFunc(d.bubbles, func(b bubble) bool { return b.y < -0.5 })
+	d.bubbles = slices.DeleteFunc(d.bubbles, func(b bubble) bool { return b.y < SurfaceRows-0.5 })
 	for i := range d.flourishes {
-		// It floats up as far as the top of the Tank, and fades there.
-		d.flourishes[i].y = max(d.flourishes[i].y-FlourishRise*s, 0)
+		// It floats up as far as the surface, and fades there.
+		d.flourishes[i].y = max(d.flourishes[i].y-FlourishRise*s, SurfaceRows)
 		d.flourishes[i].age += s
 	}
 	d.flourishes = slices.DeleteFunc(d.flourishes, func(fl flourish) bool { return fl.age >= FlourishLife })
@@ -123,7 +123,7 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 
 // flourish starts a heart or note floating up from col, row.
 func (t *Tank) flourish(col, row float64, kind FlourishKind) {
-	row = max(row, 0)
+	row = max(row, SurfaceRows)
 	t.decor.flourishes = append(t.decor.flourishes, flourish{x: col, y: row, kind: kind})
 }
 
@@ -151,6 +151,7 @@ func (t *Tank) trimDecor() {
 func (t *Tank) snapshotDecor(snap *Snapshot) {
 	d := t.decor
 	snap.Fish.Blinking = d.blinking > 0
+	snap.Shells = slices.Clone(t.shells)
 	for _, b := range d.bubbles {
 		size := 0
 		switch risen := b.from - b.y; {

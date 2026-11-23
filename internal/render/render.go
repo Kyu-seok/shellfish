@@ -14,8 +14,6 @@ import (
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
-const sand = '░'
-
 // faces is the Fish's face for each Mood, as it faces right.
 var faces = map[fish.Mood]string{
 	fish.Content:  "◕ ᴗ",
@@ -70,20 +68,22 @@ func fishSprite(face, tail string) [3]string {
 // tails are the tail's two frames facing right. It swishes between them.
 var tails = [2]string{"><", ">-"}
 
-// Tank draws the Tank as rows of exactly s.Width cells: water, bubbles,
-// hearts and notes, seaweed, Food and the Fish above a sandy floor, each in
-// front of the ones before it.
+// Tank draws the Tank as rows of exactly s.Width cells: the surface, the
+// sandy floor, bubbles, hearts and notes, shells, seaweed, Food and the Fish,
+// each in front of the ones before it.
 func Tank(s tank.Snapshot, look Look) []string {
 	if s.Width <= 0 || s.Height <= 0 {
 		return nil
 	}
 	g := newGrid(s.Width, s.Height)
 	floor := s.Height - 1
-	for x := range s.Width {
-		g.set(x, floor, sand, plainInk)
-	}
+	drawSurface(g, s, look)
+	drawSand(g, s, look)
 	for _, b := range s.Bubbles {
 		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
+		if !look.Monochrome {
+			g.colour(b.Col, b.Row, bubbleColour)
+		}
 	}
 	for _, fl := range s.Flourishes {
 		in := fishInk
@@ -92,6 +92,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 		}
 		g.set(fl.Col, fl.Row, flourishGlyphs[fl.Kind], in)
 	}
+	drawShells(g, s, look)
 	for _, st := range s.Seaweed {
 		drawStalk(g, st, floor, look.Monochrome)
 	}
