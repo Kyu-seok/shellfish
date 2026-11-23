@@ -4,7 +4,6 @@
 package render
 
 import (
-	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -40,13 +39,11 @@ type Look struct {
 func drawTank(s tank.Snapshot, look Look) grid {
 	g := newGrid(max(s.Width, 0), max(s.Height, 0))
 	floor := s.Height - 1
-	drawSurface(g, s, look)
-	drawSand(g, s, look)
+	mono := look.Monochrome
+	drawSurface(g, s, mono)
+	drawSand(g, s, mono)
 	for _, b := range s.Bubbles {
-		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
-		if !look.Monochrome {
-			g.colour(b.Col, b.Row, bubbleColour)
-		}
+		g.setColoured(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk, bubbleColour, mono)
 	}
 	for _, fl := range s.Flourishes {
 		in := plainInk
@@ -55,74 +52,19 @@ func drawTank(s tank.Snapshot, look Look) grid {
 		}
 		g.set(fl.Col, fl.Row, flourishGlyphs[fl.Kind], in)
 	}
-	drawShells(g, s, look)
+	drawShells(g, s, mono)
 	for _, st := range s.Seaweed {
-		drawStalk(g, st, floor, look.Monochrome)
+		drawStalk(g, st, floor, mono)
 	}
 	for _, fd := range s.Food {
 		in := plainInk
 		if fd.Fading {
 			in = faintInk
 		}
-		g.set(fd.Col, fd.Row, fd.Kind.Glyph(), in)
-		if !look.Monochrome {
-			g.colour(fd.Col, fd.Row, fd.Kind.Colour())
-		}
+		g.setColoured(fd.Col, fd.Row, fd.Kind.Glyph(), in, fd.Kind.Colour(), mono)
 	}
-	drawFish(g, look.Art, s.Fish, look.Mood, look.Monochrome)
+	drawFish(g, look.Art, s.Fish, look.Mood, mono)
 	return g
-}
-
-// Seaweed colours.
-const (
-	kelpColour    = "#3FA34D"
-	kelpTipColour = "#6CC56F"
-	grassColour   = "#8BD17C"
-)
-
-// drawStalk draws a stalk of seaweed standing on the floor row, in its
-// colours unless monochrome: its kelp, and its tuft of grass beside it. Kelp
-// is a two-column zigzag of ( and ) that leans more the higher it is, so its
-// base stays put while its tip sways. Grass is a \|/ tuft whose blade on top
-// leans as it sways.
-func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
-	draw := func(x, y int, c rune, colour string) {
-		g.set(x, y, c, plainInk)
-		if !monochrome {
-			g.colour(x, y, colour)
-		}
-	}
-	lean := math.Sin(2 * math.Pi * st.Sway)
-	for i := range st.Height {
-		off := 0
-		if st.Height > 1 {
-			k := float64(i) / float64(st.Height-1)
-			off = int(max(-1, min(1, math.Round(KelpLean*k*k*lean))))
-		}
-		x, c := st.KelpCol+1+off, '('
-		if i%2 == 1 {
-			x, c = x+1, ')'
-		}
-		colour := kelpColour
-		if i == st.Height-1 {
-			colour = kelpTipColour
-		}
-		draw(x, floor-1-i, c, colour)
-	}
-	tuft := st.TuftCol
-	for i, c := range `\|/` {
-		draw(tuft+i, floor-1, c, grassColour)
-	}
-	if st.Tuft > 1 {
-		x, c := tuft+1, '|'
-		switch {
-		case lean < -GrassBend:
-			x, c = tuft, '\\'
-		case lean > GrassBend:
-			x, c = tuft+2, '/'
-		}
-		draw(x, floor-2, c, grassColour)
-	}
 }
 
 func runeWidth(c rune) int { return max(ansi.StringWidth(string(c)), 1) }
@@ -173,9 +115,11 @@ func (g grid) set(x, y int, c rune, in ink) {
 	}
 }
 
-// colour draws the cell at x, y in its own colour fg, on top of its ink.
-func (g grid) colour(x, y int, fg string) {
-	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
+// setColoured draws c at x, y in ink in, as set does, and in its own colour
+// fg unless monochrome.
+func (g grid) setColoured(x, y int, c rune, in ink, fg string, monochrome bool) {
+	g.set(x, y, c, in)
+	if !monochrome && y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
 		g[y][x].fg = fg
 	}
 }

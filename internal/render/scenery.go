@@ -8,52 +8,53 @@ import (
 
 // The Scenery's colours: calm and fixed, so the Fish stays the focal point.
 const (
-	surfaceColour = "#5DADE2"
-	sandColour    = "#C2A878"
-	darkSand      = "#9C8460"
-	pebbleColour  = "#8E8E8E"
-	shellColour   = "#F4A6A6"
-	bubbleColour  = "#BFEFFF"
+	surfaceColour  = "#5DADE2"
+	sandColour     = "#C2A878"
+	darkSandColour = "#9C8460"
+	pebbleColour   = "#8E8E8E"
+	shellColour    = "#F4A6A6"
+	kelpColour     = "#3FA34D"
+	kelpTipColour  = "#6CC56F"
+	grassColour    = "#8BD17C"
+	bubbleColour   = "#BFEFFF"
 )
 
-// drawSurface draws the top row as a slowly drifting wave line.
-func drawSurface(g grid, s tank.Snapshot, look Look) {
+// drawSurface draws the top row as a slowly drifting wave line, in its
+// colour unless monochrome: ripples drifting one way over a swell drifting
+// the other.
+func drawSurface(g grid, s tank.Snapshot, monochrome bool) {
 	for x := range s.Width {
-		v := math.Sin(float64(x)*0.45+s.Clock*1.2) + 0.6*math.Sin(float64(x)*0.17-s.Clock*0.7)
+		v := math.Sin(float64(x)*RippleLength+s.Clock*RippleSpeed) +
+			SwellHeight*math.Sin(float64(x)*SwellLength-s.Clock*SwellSpeed)
 		c := '~'
 		switch {
-		case v < -0.6:
+		case v < WaveTrough:
 			c = '_'
-		case v < 0.4:
+		case v < WaveCrest:
 			c = '-'
 		}
-		g.set(x, 0, c, plainInk)
-		if !look.Monochrome {
-			g.colour(x, 0, surfaceColour)
-		}
+		g.setColoured(x, 0, c, plainInk, surfaceColour, monochrome)
 	}
 }
 
-// drawSand draws the floor row as textured sand with pebbles. Each column's
-// grain is fixed, so the sand never shimmers.
-func drawSand(g grid, s tank.Snapshot, look Look) {
+// drawSand draws the floor row as textured sand with pebbles, in its
+// colours unless monochrome. Each column's grain is fixed, so the sand
+// never shimmers.
+func drawSand(g grid, s tank.Snapshot, monochrome bool) {
 	floor := s.Height - 1
 	for x := range s.Width {
 		c, fg := '░', sandColour
-		switch grain(x) % 11 {
+		switch grain(x) % SandGrains {
 		case 0:
-			c, fg = '▒', darkSand
+			c, fg = '▒', darkSandColour
 		case 1, 2:
-			c, fg = '.', darkSand
+			c, fg = '.', darkSandColour
 		case 3:
-			c, fg = ',', darkSand
+			c, fg = ',', darkSandColour
 		case 4:
 			c, fg = 'o', pebbleColour
 		}
-		g.set(x, floor, c, plainInk)
-		if !look.Monochrome {
-			g.colour(x, floor, fg)
-		}
+		g.setColoured(x, floor, c, plainInk, fg, monochrome)
 	}
 }
 
@@ -71,13 +72,50 @@ func grain(x int) uint32 {
 // shellGlyphs are how the shells resting on the sand are drawn, in turn.
 var shellGlyphs = []rune{'@', 'Ѡ'}
 
-// drawShells draws the shells resting on the sand.
-func drawShells(g grid, s tank.Snapshot, look Look) {
+// drawShells draws the shells resting on the sand, in their colour unless
+// monochrome.
+func drawShells(g grid, s tank.Snapshot, monochrome bool) {
 	for i, x := range s.Shells {
-		c := shellGlyphs[i%len(shellGlyphs)]
-		g.set(x, s.Height-2, c, plainInk)
-		if !look.Monochrome {
-			g.colour(x, s.Height-2, shellColour)
+		g.setColoured(x, s.Height-2, shellGlyphs[i%len(shellGlyphs)], plainInk, shellColour, monochrome)
+	}
+}
+
+// drawStalk draws a stalk of seaweed standing on the floor row, in its
+// colours unless monochrome: its kelp, and its tuft of grass beside it. Kelp
+// is a two-column zigzag of ( and ) that leans more the higher it is, so its
+// base stays put while its tip sways. Grass is a \|/ tuft whose blade on top
+// leans as it sways.
+func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
+	draw := func(x, y int, c rune, colour string) { g.setColoured(x, y, c, plainInk, colour, monochrome) }
+	lean := math.Sin(2 * math.Pi * st.Sway)
+	for i := range st.Height {
+		off := 0
+		if st.Height > 1 {
+			k := float64(i) / float64(st.Height-1)
+			off = int(max(-1, min(1, math.Round(KelpLean*k*k*lean))))
 		}
+		x, c := st.KelpCol+1+off, '('
+		if i%2 == 1 {
+			x, c = x+1, ')'
+		}
+		colour := kelpColour
+		if i == st.Height-1 {
+			colour = kelpTipColour
+		}
+		draw(x, floor-1-i, c, colour)
+	}
+	tuft := st.TuftCol
+	for i, c := range `\|/` {
+		draw(tuft+i, floor-1, c, grassColour)
+	}
+	if st.Tuft > 1 {
+		x, c := tuft+1, '|'
+		switch {
+		case lean < -GrassBend:
+			x, c = tuft, '\\'
+		case lean > GrassBend:
+			x, c = tuft+2, '/'
+		}
+		draw(x, floor-2, c, grassColour)
 	}
 }

@@ -33,3 +33,22 @@ const GrassBend = 0.35
 // Fish's eye is: just over a pixel either way, so the eye is always a hole
 // closed all round.
 const EyeRing = 0.7
+
+// The water's surface is ripples drifting one way over a swell drifting the
+// other. Lengths are in radians a column, speeds in radians a second.
+// RippleLength and RippleSpeed shape the ripples, which rise and fall by 1;
+// SwellHeight, SwellLength and SwellSpeed the swell. Where the two add up
+// to below WaveTrough the surface is drawn _, below WaveCrest -, and ~ above.
+const (
+	RippleLength = 0.45
+	RippleSpeed  = 1.2
+	SwellHeight  = 0.6
+	SwellLength  = 0.17
+	SwellSpeed   = 0.7
+	WaveTrough   = -0.6
+	WaveCrest    = 0.4
+)
+
+// SandGrains is how many columns of sand make up one mix of grains: of
+// each SandGrains, about one is coarse, three are grit and one a pebble.
+const SandGrains = 11
