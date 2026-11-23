@@ -22,6 +22,9 @@ func drawSurface(g grid, s tank.Snapshot, look Look) {
 		case v < 0.4:
 			c = '-'
 		}
-		g.paint(x, 0, c, look.colour(surfaceColour))
+		g.set(x, 0, c, plainInk)
+		if !look.Monochrome {
+			g.colour(x, 0, surfaceColour)
+		}
 	}
 }

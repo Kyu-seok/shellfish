@@ -102,12 +102,12 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 	if d.puffIn -= s; d.puffIn <= 0 {
 		d.puffIn = d.between(PuffMin, PuffMax)
 		// Just in front of its mouth.
-		x := f.x + FishWidth - 1
+		x := f.x + t.mouthCol(f.facingLeft) + 1
 		if f.facingLeft {
-			x = f.x - 1
+			x -= 2
 		}
 		if !f.mouthOpen && x >= 0 && x < float64(t.width) {
-			y := row + 1
+			y := row + float64(t.body.MouthRow)
 			d.bubbles = append(d.bubbles, bubble{x: x, y: y, from: y})
 		}
 	}
@@ -117,7 +117,7 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 		if d.rand.IntN(2) == 0 {
 			kind = Note
 		}
-		t.flourish(f.x+math.Floor(FishWidth/2), row-1, kind)
+		t.flourish(f.x+float64(t.body.Width/2), row-1, kind)
 	}
 }
 

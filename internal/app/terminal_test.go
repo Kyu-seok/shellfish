@@ -96,6 +96,10 @@ var colourSGR = regexp.MustCompile(`\x1b\[([0-9]+;)*(3[0-9]|4[0-9]|9[0-7]|10[0-7
 func TestMonochromeDrawsNoColour(t *testing.T) {
 	h := newHarness(t, named("Bubbles"), monochrome())
 	h.resize(80, 24)
+	for i, key := range []string{"1", "2", "3"} { // a pellet, a flake and a worm
+		h.press(key)
+		h.click(30+5*i, 2)
+	}
 
 	raw := strings.Join(h.rawView(), "\n")
 	if colourSGR.MatchString(raw) {

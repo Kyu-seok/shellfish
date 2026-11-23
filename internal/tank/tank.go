@@ -26,9 +26,23 @@ type Snapshot struct {
 	Clock float64
 }
 
+// Body is the size of the box the Fish's drawing fits in, and where its
+// mouth is in that box. The Tank keeps the whole box inside the water and
+// clear of the seaweed, and eats, opens its mouth and blows bubbles at the
+// mouth.
+type Body struct {
+	// Width and Height are the box's size in cells.
+	Width, Height int
+	// MouthRow is the row of the mouth in the box, counted from its top.
+	MouthRow int
+	// MouthRight and MouthLeft are the column of the mouth in the box,
+	// counted from its left, when the Fish faces right and left.
+	MouthRight, MouthLeft int
+}
+
 // Fish is where the Fish is drawn.
 type Fish struct {
-	// Col and Row are the top-left cell of its FishWidth×FishHeight box.
+	// Col and Row are the top-left cell of its Body's box.
 	Col, Row   int
 	FacingLeft bool
 	// TailUp alternates as the tail swishes.
@@ -67,6 +81,7 @@ type Stalk struct {
 type Tank struct {
 	rand          *rand.Rand
 	width, height int
+	body          Body
 	clock         float64 // seconds simulated
 	fish          swimmer
 	seaweed       []stalk
@@ -115,12 +130,12 @@ type swimmer struct {
 }
 
 // New fills a width×height Tank, the floor being its last row, with seaweed
-// and a Fish in the middle.
-func New(r *rand.Rand, width, height int) *Tank {
-	t := &Tank{rand: r}
+// and a Fish with body in the middle.
+func New(r *rand.Rand, width, height int, body Body) *Tank {
+	t := &Tank{rand: r, body: body}
 	t.Resize(width, height)
-	t.fish.x = float64((t.width - FishWidth + 1) / 2) // centres the 11-cell drawing
-	t.fish.y = float64((t.waterRows() - FishHeight) / 2)
+	t.fish.x = float64((t.width - body.Width + 1) / 2)
+	t.fish.y = float64((t.waterRows() - body.Height) / 2)
 	t.keepFishInside()
 	// Decorations draw from their own source, seeded last so the seaweed is
 	// the same as without them.
@@ -354,31 +369,31 @@ func (t *Tank) mouthOn(col, row float64, left bool) (x, y float64, ok bool) {
 	// Right on the Food, or a cell short of it either way, out of the way of
 	// a wall or a stalk.
 	for _, dx := range []float64{0, -1, 1} {
-		x := clamp(col-mouthCol(left)+dx, 0, float64(t.width-FishWidth))
-		y := clamp(row-1, highestFish, float64(t.waterRows()-FishHeight)-BobAmplitude)
+		x := clamp(col-t.mouthCol(left)+dx, 0, float64(t.width-t.body.Width))
+		y := clamp(row-float64(t.body.MouthRow), highestFish, float64(t.waterRows()-t.body.Height)-BobAmplitude)
 		// Rise until clear of the seaweed.
 		for !t.fits(x, y) && y > highestFish {
 			y = max(y-RiseStep, highestFish)
 		}
-		if t.fits(x, y) && reaches(x, y, left, col, row) {
+		if t.fits(x, y) && t.reaches(x, y, left, col, row) {
 			return x, y, true
 		}
 	}
 	return 0, 0, false
 }
 
-// mouthCol is the column of the Fish's mouth in its box.
-func mouthCol(left bool) float64 {
+// mouthCol is the column of the Fish's mouth in its box, facing left or not.
+func (t *Tank) mouthCol(left bool) float64 {
 	if left {
-		return 0
+		return float64(t.body.MouthLeft)
 	}
-	return FishWidth - 2
+	return float64(t.body.MouthRight)
 }
 
 // reaches reports whether a Fish at x, y facing left or right can eat Food at
 // col, row.
-func reaches(x, y float64, left bool, col, row float64) bool {
-	return math.Abs(x+mouthCol(left)-col) <= EatReachCols && math.Abs(y+1-row) <= EatReachRows
+func (t *Tank) reaches(x, y float64, left bool, col, row float64) bool {
+	return math.Abs(x+t.mouthCol(left)-col) <= EatReachCols && math.Abs(y+float64(t.body.MouthRow)-row) <= EatReachRows
 }
 
 // eat has the Fish eat the first piece of Food within reach of its mouth, if
@@ -386,7 +401,7 @@ func reaches(x, y float64, left bool, col, row float64) bool {
 func (t *Tank) eat() []Meal {
 	f := &t.fish
 	for i, fd := range t.food {
-		if reaches(f.x, f.y, f.facingLeft, fd.x, fd.y) {
+		if t.reaches(f.x, f.y, f.facingLeft, fd.x, fd.y) {
 			f.mouthOpen = false
 			t.food = slices.Delete(t.food, i, i+1)
 			return []Meal{{Kind: fd.kind, Col: int(fd.x), Row: int(math.Round(fd.y))}}
@@ -401,7 +416,7 @@ func (t *Tank) aboveSeaweed() float64 {
 	for _, st := range t.seaweed {
 		tallest = max(tallest, st.height)
 	}
-	return max(float64(t.waterRows()-tallest-FishHeight)-BobAmplitude, highestFish)
+	return max(float64(t.waterRows()-tallest-t.body.Height)-BobAmplitude, highestFish)
 }
 
 // Snapshot returns what the Tank looks like now.
@@ -458,7 +473,7 @@ func (t *Tank) startTrip() {
 	}
 	highest, lowest := t.swimRange(e.low)
 	for range TargetTries {
-		tx := t.rand.Float64() * float64(t.width-FishWidth)
+		tx := t.rand.Float64() * float64(t.width-t.body.Width)
 		ty := between(t.rand, highest, lowest)
 		if t.pathClear(f.x, f.y, tx, ty) {
 			t.setOff(tx, ty, CruiseSpeed*e.speed, Accel*e.speed)
@@ -471,7 +486,7 @@ func (t *Tank) startTrip() {
 // swimRange is the highest and lowest the Fish's top wanders between: the
 // whole water, or only the bottom LowWater of it when low.
 func (t *Tank) swimRange(low bool) (highest, lowest float64) {
-	lowest = float64(t.waterRows() - FishHeight)
+	lowest = float64(t.waterRows() - t.body.Height)
 	if low {
 		highest = lowest * (1 - LowWater)
 	}
@@ -575,12 +590,12 @@ func (t *Tank) fits(x, y float64) bool {
 // clear of the seaweed.
 func (t *Tank) boxFits(x, y float64) bool {
 	col, top := int(math.Round(x)), int(math.Round(y))
-	bottom := top + FishHeight - 1
-	if col < 0 || col+FishWidth > t.width || top < SurfaceRows || bottom >= t.waterRows() {
+	bottom := top + t.body.Height - 1
+	if col < 0 || col+t.body.Width > t.width || top < SurfaceRows || bottom >= t.waterRows() {
 		return false
 	}
 	for _, st := range t.seaweed {
-		overlaps := st.col <= col+FishWidth-1 && st.col+1 >= col
+		overlaps := st.col <= col+t.body.Width-1 && st.col+1 >= col
 		if overlaps && bottom >= t.waterRows()-st.height {
 			return false
 		}
@@ -605,8 +620,8 @@ func (t *Tank) pathClear(x0, y0, x1, y1 float64) bool {
 // walls, then up and over any seaweed it would be caught in.
 func (t *Tank) keepFishInside() {
 	f := &t.fish
-	f.x = clamp(f.x, 0, float64(t.width-FishWidth))
-	f.y = clamp(f.y, highestFish, float64(t.waterRows()-FishHeight)-BobAmplitude)
+	f.x = clamp(f.x, 0, float64(t.width-t.body.Width))
+	f.y = clamp(f.y, highestFish, float64(t.waterRows()-t.body.Height)-BobAmplitude)
 	for !t.fits(f.x, f.y) && f.y > highestFish {
 		f.y = max(f.y-1, highestFish)
 	}
@@ -618,7 +633,7 @@ func (t *Tank) keepFishInside() {
 // them so the Fish can reach Food resting anywhere.
 func (t *Tank) growSeaweed() {
 	t.seaweed = t.seaweed[:0]
-	tallest := min(SeaweedMaxHeight, t.waterRows()-FishHeight-FishClearance)
+	tallest := min(SeaweedMaxHeight, t.waterRows()-t.body.Height-FishClearance)
 	if tallest < 1 || t.width < SeaweedGap+2 {
 		return
 	}

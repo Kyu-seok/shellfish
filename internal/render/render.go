@@ -49,19 +49,17 @@ type Look struct {
 	Monochrome bool
 }
 
-// colour is hex, or the default colour if Monochrome.
-func (l Look) colour(hex string) string {
-	if l.Monochrome {
-		return ""
-	}
-	return hex
-}
+// PuffballBody is the box the puffball fits in, and where its mouth is.
+// Most faces make the drawing 10 cells wide; the box leaves room for a face
+// with a two-cell character. The mouth is the front of the face's bracket,
+// so the drawing's front edge whichever way it faces.
+var PuffballBody = tank.Body{Width: 11, Height: 3, MouthRow: 1, MouthRight: 9, MouthLeft: 0}
 
 // fishSprite is the puffball facing right, wearing face, with tail as its
 // first two characters. Spaces around the drawing are see-through. It fits in
-// tank.FishWidth cells.
-func fishSprite(face, tail string) [tank.FishHeight]string {
-	return [tank.FishHeight]string{
+// PuffballBody.
+func fishSprite(face, tail string) [3]string {
+	return [3]string{
 		"   .-~~-. ",
 		tail + "(  " + face + " )",
 		"   `-..-' ",
@@ -110,6 +108,9 @@ func Tank(s tank.Snapshot, look Look) []string {
 			in = faintInk
 		}
 		g.set(fd.Col, fd.Row, fd.Kind.Glyph(), in)
+		if !look.Monochrome {
+			g.colour(fd.Col, fd.Row, fd.Kind.Colour())
+		}
 	}
 	drawFish(g, s.Fish, face(s.Fish, faces[look.Mood]))
 	style := lipgloss.NewStyle()
@@ -176,7 +177,7 @@ type grid [][]cell
 type cell struct {
 	c  rune // 0 for the second half of a two-cell character
 	in ink
-	fg string // a plain cell's colour as "#rrggbb", or "" for the default
+	fg string // the cell's own colour as #rrggbb, or "" for its ink's
 }
 
 // ink is how a cell is styled.
@@ -215,15 +216,15 @@ func (g grid) set(x, y int, c rune, in ink) {
 	}
 }
 
-// paint draws c at x, y in the colour fg, as set does.
-func (g grid) paint(x, y int, c rune, fg string) {
-	g.set(x, y, c, plainInk)
-	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) && g[y][x].c == c {
+// colour draws the cell at x, y in its own colour fg, on top of its ink.
+func (g grid) colour(x, y int, fg string) {
+	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
 		g[y][x].fg = fg
 	}
 }
 
-// rows renders the grid, styling each run of Fish cells with fishStyle.
+// rows renders the grid, styling each run of Fish cells with fishStyle and
+// each cell with a colour of its own in that colour.
 func (g grid) rows(fishStyle lipgloss.Style) []string {
 	styles := map[ink]lipgloss.Style{fishInk: fishStyle, faintInk: faintStyle}
 	out := make([]string, len(g))
@@ -237,9 +238,11 @@ func (g grid) rows(fishStyle lipgloss.Style) []string {
 					run.WriteRune(row[end].c)
 				}
 			}
+			style, ok := styles[row[x].in]
 			if row[x].fg != "" {
-				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(row[x].fg)).Render(run.String()))
-			} else if style, ok := styles[row[x].in]; ok {
+				style, ok = style.Foreground(lipgloss.Color(row[x].fg)), true
+			}
+			if ok {
 				b.WriteString(style.Render(run.String()))
 			} else {
 				b.WriteString(run.String())
