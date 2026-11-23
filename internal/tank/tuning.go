@@ -1,5 +1,7 @@
 package tank
 
+import "github.com/Kyu-seok/shellfish/internal/fish"
+
 // Tuning numbers for the Tank simulation. Distances are in cells, times in
 // seconds. A cell is about twice as tall as it is wide, so vertical speeds are
 // kept lower than horizontal ones.
@@ -47,8 +49,10 @@ const (
 	// and hovering a little longer.
 	TargetTries = 30
 
-	// SeaweedSpacing is about how many columns of Tank there are per stalk.
-	SeaweedSpacing = 18
+	// SeaweedGap is the fewest empty columns of floor between two stalks, or
+	// between a stalk and a wall, unless the stalk stands against the wall. It
+	// leaves the Fish room to reach Food resting anywhere on the floor.
+	SeaweedGap = 18
 	// SeaweedMinHeight and SeaweedMaxHeight bound a stalk's height in rows.
 	SeaweedMinHeight = 2
 	SeaweedMaxHeight = 5
@@ -62,4 +66,48 @@ const (
 	TailBaseRate = 1.5
 	// TailRatePerSpeed adds swishes per second for each cell per second of speed.
 	TailRatePerSpeed = 0.8
+)
+
+// Food.
+const (
+	// MaxFood is the most Food the Tank holds at once. Extra drops are ignored.
+	MaxFood = 8
+	// FoodRestTime is how long Food rests on the floor before it is gone, and
+	// FoodFadeTime is how much of the end of that it spends fading.
+	FoodRestTime = 30.0
+	FoodFadeTime = 5.0
+)
+
+// SinkSpeed is how fast each Food Kind sinks, in rows per second.
+var SinkSpeed = map[fish.FoodKind]float64{
+	fish.Pellet: 1.2,
+	fish.Flake:  0.8, // flutters down
+	fish.Worm:   1.6,
+}
+
+// The Fish going for Food.
+const (
+	// ChaseSpeed and ChaseAccel are the Fish's top speed and acceleration on
+	// its way to Food: quicker than a cruise.
+	ChaseSpeed = 12.0
+	ChaseAccel = 24.0
+	// ReverseSpeed is how fast the Fish can back up to line its mouth up with
+	// Food just behind it, rather than swimming off and turning around.
+	ReverseSpeed = 2.5
+	// BackUpDistance is the furthest the Fish backs up to reach Food. Further
+	// than that it turns and swims there, then turns back to face the Food.
+	BackUpDistance = 3.0
+	// TurnCost is how many cells of swimming one turn around is worth, when
+	// the Fish weighs up which Food is nearest and which side to eat it from.
+	TurnCost = 8.0
+	// EatReachCols and EatReachRows are how close Food must be to the Fish's
+	// mouth for it to eat.
+	EatReachCols = 1.5
+	EatReachRows = 2.0
+	// MouthOpenReach is how close the Fish is to the Food it is going for when
+	// it opens its mouth.
+	MouthOpenReach = 4.0
+	// InterceptSteps refines where the Fish aims for sinking Food: each step
+	// predicts where the Food will be when the Fish gets there.
+	InterceptSteps = 3
 )

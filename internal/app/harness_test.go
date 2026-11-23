@@ -264,3 +264,26 @@ func (h *harness) watch(d time.Duration) []sighting {
 	}
 	return seen
 }
+
+// click presses and releases the left mouse button on the cell at col, row,
+// counted from the window's top-left corner, as a terminal with mouse
+// reporting sends it.
+func (h *harness) click(col, row int) {
+	h.send(
+		tea.MouseMsg{X: col, Y: row, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft},
+		tea.MouseMsg{X: col, Y: row, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft},
+	)
+}
+
+// cellAt is the character drawn at col, row, or "" outside the window.
+func (h *harness) cellAt(col, row int) string {
+	rows := h.view()
+	if row < 0 || row >= len(rows) {
+		return ""
+	}
+	cells := []rune(rows[row])
+	if col < 0 || col >= len(cells) {
+		return ""
+	}
+	return string(cells[col])
+}

@@ -15,12 +15,13 @@ func (h *harness) statusLine() string {
 // screen is the whole rendered Tank as plain text.
 func (h *harness) screen() string { return strings.Join(h.view(), "\n") }
 
-// reopen quits h and launches the app again on its data folder with the clock
-// moved by d, as if the user had come back d later.
+// reopen quits h and launches the app again on its data folder, with the
+// same random seed, and the clock moved by d, as if the user had come back d
+// later.
 func (h *harness) reopen(d time.Duration) *harness {
 	h.t.Helper()
 	h.press("q")
-	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)))
+	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)), withSeed(h.seed))
 }
 
 const (

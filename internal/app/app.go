@@ -54,9 +54,10 @@ type Model struct {
 	now           time.Time // the time of the latest tick
 	lastSaved     time.Time // when the Fish was last written to the data folder
 	lock          *store.Lock
-	refusal       string    // why this launch was refused, if another Tank is open
-	greeting      string    // the welcome-back greeting, if the user was away a while
-	greetUntil    time.Time // when the greeting goes away by itself
+	refusal       string        // why this launch was refused, if another Tank is open
+	greeting      string        // the welcome-back greeting, if the user was away a while
+	greetUntil    time.Time     // when the greeting goes away by itself
+	foodKind      fish.FoodKind // what a click or f drops
 }
 
 // New builds the app from its dependencies. It takes the data folder's lock,
@@ -145,17 +146,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case TickMsg:
 		m.now = msg.Time
-		if m.tank != nil {
-			m.tank.Step(FrameInterval)
-		}
 		if m.hasFish() {
 			m.fish = m.fish.CatchUp(m.now)
-			// A clock that moved backwards saves now instead of waiting to catch up.
-			if since := m.now.Sub(m.lastSaved); since >= SaveInterval || since < 0 {
+		}
+		if m.tank != nil {
+			if meals := m.tank.Step(FrameInterval, !m.hasFish() || m.fish.Full()); len(meals) > 0 {
+				for _, meal := range meals {
+					m.fish = m.fish.Eat(meal.Kind)
+				}
 				m = m.save(m.now)
 			}
 		}
+		// A clock that moved backwards saves now instead of waiting to catch up.
+		if since := m.now.Sub(m.lastSaved); m.hasFish() && (since >= SaveInterval || since < 0) {
+			m = m.save(m.now)
+		}
 		return m, m.deps.Clock.Tick(FrameInterval)
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && m.tankShown() {
+			m.tank.Drop(m.foodKind, msg.X, msg.Y)
+		}
 	case tea.KeyMsg:
 		if m.refusal != "" {
 			return m, tea.Quit
@@ -163,9 +173,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.naming {
 			return m.updateNaming(msg)
 		}
-		switch msg.String() {
+		switch key := msg.String(); key {
 		case "q", "esc", "ctrl+c":
 			return m.quit()
+		case "f", " ":
+			if m.tankShown() {
+				m.tank.DropNearTop(m.foodKind)
+			}
+		case "1", "2", "3":
+			m.foodKind = fish.FoodKinds[key[0]-'1']
 		}
 	}
 	return m, nil
@@ -188,6 +204,15 @@ var faces = map[fish.Mood]string{
 	fish.Starving: "; ﹏",
 }
 
+// eatingFace is the Fish's face, whatever its Mood, just before it eats.
+const eatingFace = "◕ o"
+
+// tankShown reports whether the Tank is open and drawn, so Food can be
+// dropped into it.
+func (m Model) tankShown() bool {
+	return m.hasFish() && m.tank != nil && m.width >= MinTankWidth && m.height >= MinTankHeight
+}
+
 // View draws the Tank to fill the window, with the status line below it.
 func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
@@ -206,11 +231,15 @@ func (m Model) View() string {
 		msg := ansi.Wordwrap("Make me a bigger tank 🐟", m.width, "")
 		return m.messageView(strings.Split(msg, "\n")...)
 	}
+	snap := m.tank.Snapshot()
 	look := render.Look{Face: faces[m.fish.Mood()]}
+	if snap.Fish.MouthOpen {
+		look.Face = eatingFace
+	}
 	if !m.deps.Monochrome {
 		look.Colour = string(m.fish.Colour)
 	}
-	water := render.Tank(m.tank.Snapshot(), look)
+	water := render.Tank(snap, look)
 	if len(water) > 0 {
 		m.drawGreeting(water[:len(water)-1]) // over the water, not the sand
 	}
@@ -226,33 +255,42 @@ var hintStyle = lipgloss.NewStyle().Faint(true)
 
 // statusLine is exactly the window's width: the Fish's facts on the left and
 // a faint key hint at the right end, which makes way when there is no room.
+// The selected Food Kind, last of the facts, shrinks from its glyph and name
+// to its glyph alone before the hint makes way for it.
 func (m Model) statusLine() string {
-	facts := m.statusFacts()
-	gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(keyHint) - 1
-	if gap < 2 {
-		return fit(facts, m.width)
+	glyph := render.FoodGlyph(m.foodKind)
+	named := glyph + " " + m.foodKind.String()
+	for _, food := range []string{named, glyph} {
+		facts := m.statusFacts(food)
+		if gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(keyHint) - 1; gap >= 2 {
+			return facts + strings.Repeat(" ", gap) + hintStyle.Render(keyHint) + " "
+		}
 	}
-	return facts + strings.Repeat(" ", gap) + hintStyle.Render(keyHint) + " "
+	return fit(m.statusFacts(named, glyph), m.width)
 }
 
-// statusFacts shows the Fish's name, its Hunger meter and its Age, as many of
-// them as fit whole in the window's width, so it never ends in a dangling "·".
-func (m Model) statusFacts() string {
+// statusFacts shows the Fish's name, then its Hunger meter, its Age and the
+// first of foods (ways of showing the selected Food Kind) that fits, each
+// only if it fits whole in the window's width, so it never ends in a
+// dangling "·".
+func (m Model) statusFacts(foods ...string) string {
 	days := m.fish.Age(m.now)
 	unit := "days"
 	if days == 1 {
 		unit = "day"
 	}
 	facts := " " + m.fish.Name
-	for _, item := range []string{
-		"Hunger " + hungerMeter(m.fish.Hunger),
-		fmt.Sprintf("Age %d %s", days, unit),
+	for _, item := range [][]string{
+		{"Hunger " + hungerMeter(m.fish.Hunger)},
+		{fmt.Sprintf("Age %d %s", days, unit)},
+		foods,
 	} {
-		next := facts + " · " + item
-		if ansi.StringWidth(next) > m.width {
-			break
+		for _, way := range item {
+			if next := facts + " · " + way; ansi.StringWidth(next) <= m.width {
+				facts = next
+				break
+			}
 		}
-		facts = next
 	}
 	return facts
 }

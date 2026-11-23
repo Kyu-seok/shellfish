@@ -50,7 +50,7 @@ func run() (int, error) {
 		fmt.Fprintln(os.Stderr, m.ExitMessage())
 		return code, nil
 	}
-	final, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	final, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
 	if err != nil {
 		return 1, err
 	}

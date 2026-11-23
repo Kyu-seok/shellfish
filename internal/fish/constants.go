@@ -30,3 +30,14 @@ const (
 	HungryAt   = 40.0
 	StarvingAt = 80.0
 )
+
+// FullMargin is how far above the lowest Hunger the Fish still counts as
+// Full. Hunger takes about a quarter of an hour to rise past it.
+const FullMargin = 1.0
+
+// FoodValue is how much eating each Food Kind lowers Hunger.
+var FoodValue = map[FoodKind]float64{
+	Pellet: 10,
+	Flake:  25,
+	Worm:   50,
+}

@@ -7,10 +7,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/Kyu-seok/shellfish/internal/fish"
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
 const sand = '░'
+
+// foodGlyphs is how each Food Kind is drawn.
+var foodGlyphs = map[fish.FoodKind]rune{
+	fish.Pellet: '•',
+	fish.Flake:  '*',
+	fish.Worm:   'ʃ',
+}
+
+// FoodGlyph is how Food of kind k is drawn, so it can be shown elsewhere.
+func FoodGlyph(k fish.FoodKind) string { return string(foodGlyphs[k]) }
 
 // Look is how the Fish looks right now.
 type Look struct {
@@ -35,8 +46,8 @@ func fishSprite(face, tail string) [tank.FishHeight]string {
 // tails are the tail's two frames facing right. It swishes between them.
 var tails = [2]string{"><", ">-"}
 
-// Tank draws the Tank as rows of exactly s.Width cells: water, seaweed and the
-// Fish above a sandy floor.
+// Tank draws the Tank as rows of exactly s.Width cells: water, seaweed, Food
+// and the Fish above a sandy floor. The Fish swims in front of the Food.
 func Tank(s tank.Snapshot, look Look) []string {
 	if s.Width <= 0 || s.Height <= 0 {
 		return nil
@@ -44,7 +55,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 	g := newGrid(s.Width, s.Height)
 	floor := s.Height - 1
 	for x := range s.Width {
-		g.set(x, floor, sand, false)
+		g.set(x, floor, sand, plainInk)
 	}
 	for _, st := range s.Seaweed {
 		for i := range st.Height {
@@ -53,8 +64,15 @@ func Tank(s tank.Snapshot, look Look) []string {
 			if (i%2 == 0) != st.Sway {
 				x, c = st.Col+1, '}'
 			}
-			g.set(x, floor-1-i, c, false)
+			g.set(x, floor-1-i, c, plainInk)
 		}
+	}
+	for _, fd := range s.Food {
+		in := plainInk
+		if fd.Fading {
+			in = faintInk
+		}
+		g.set(fd.Col, fd.Row, foodGlyphs[fd.Kind], in)
 	}
 	drawFish(g, s.Fish, look.Face)
 	style := lipgloss.NewStyle()
@@ -77,7 +95,7 @@ func drawFish(g grid, f tank.Fish, face string) {
 		body := strings.TrimLeft(line, " ")
 		x := f.Col + len(line) - len(body)
 		for _, c := range strings.TrimRight(body, " ") {
-			g.set(x, f.Row+i, c, true)
+			g.set(x, f.Row+i, c, fishInk)
 			x += runeWidth(c)
 		}
 	}
@@ -107,9 +125,20 @@ func runeWidth(c rune) int { return max(ansi.StringWidth(string(c)), 1) }
 type grid [][]cell
 
 type cell struct {
-	c    rune // 0 for the second half of a two-cell character
-	fish bool // part of the Fish, drawn in its colour
+	c  rune // 0 for the second half of a two-cell character
+	in ink
 }
+
+// ink is how a cell is styled.
+type ink int
+
+const (
+	plainInk ink = iota // plain
+	fishInk             // part of the Fish, drawn in its colour
+	faintInk            // fading away
+)
+
+var faintStyle = lipgloss.NewStyle().Faint(true)
 
 func newGrid(w, h int) grid {
 	g := make(grid, h)
@@ -122,33 +151,34 @@ func newGrid(w, h int) grid {
 	return g
 }
 
-// set draws c at x, y, clipping anything that doesn't fit.
-func (g grid) set(x, y int, c rune, fish bool) {
+// set draws c at x, y in ink in, clipping anything that doesn't fit.
+func (g grid) set(x, y int, c rune, in ink) {
 	w := runeWidth(c)
 	if y < 0 || y >= len(g) || x < 0 || x+w > len(g[y]) {
 		return
 	}
-	g[y][x] = cell{c: c, fish: fish}
+	g[y][x] = cell{c: c, in: in}
 	if w == 2 {
-		g[y][x+1] = cell{fish: fish}
+		g[y][x+1] = cell{in: in}
 	}
 }
 
-// rows renders the grid, styling each run of Fish cells with fish.
-func (g grid) rows(fish lipgloss.Style) []string {
+// rows renders the grid, styling each run of Fish cells with fishStyle.
+func (g grid) rows(fishStyle lipgloss.Style) []string {
+	styles := map[ink]lipgloss.Style{fishInk: fishStyle, faintInk: faintStyle}
 	out := make([]string, len(g))
 	for y, row := range g {
 		var b strings.Builder
 		for x := 0; x < len(row); {
 			var run strings.Builder
 			end := x
-			for ; end < len(row) && row[end].fish == row[x].fish; end++ {
+			for ; end < len(row) && row[end].in == row[x].in; end++ {
 				if row[end].c != 0 {
 					run.WriteRune(row[end].c)
 				}
 			}
-			if row[x].fish {
-				b.WriteString(fish.Render(run.String()))
+			if style, ok := styles[row[x].in]; ok {
+				b.WriteString(style.Render(run.String()))
 			} else {
 				b.WriteString(run.String())
 			}

@@ -148,8 +148,8 @@ func TestKeyHintMakesWayInANarrowTank(t *testing.T) {
 		width int
 		want  string
 	}{
-		{50, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days"},
-		{40, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱"},
+		{50, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days · •"},
+		{40, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · • pellet"},
 		{30, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱"},
 	} {
 		h.resize(tc.width, 10)
