@@ -32,6 +32,7 @@ type harness struct {
 	clock   *fakeClock
 	seed    uint64
 	dataDir string
+	mono    bool
 	model   tea.Model
 	last    tea.Cmd
 
@@ -48,6 +49,9 @@ func withDataDir(dir string) option { return func(h *harness) { h.dataDir = dir 
 func named(name string) option {
 	return func(h *harness) { h.afterLaunch = append(h.afterLaunch, func() { h.nameFish(name) }) }
 }
+
+// monochrome launches as on a terminal with NO_COLOR set or too few colours.
+func monochrome() option { return func(h *harness) { h.mono = true } }
 
 // at launches with the fake clock at t.
 func at(t time.Time) option { return func(h *harness) { h.clock.now = t } }
@@ -66,11 +70,13 @@ func newHarness(t *testing.T, opts ...option) *harness {
 		h.dataDir = t.TempDir()
 	}
 	m := app.New(app.Deps{
-		Clock:   h.clock,
-		Rand:    rand.New(rand.NewPCG(h.seed, 2)),
-		DataDir: h.dataDir,
+		Clock:      h.clock,
+		Rand:       rand.New(rand.NewPCG(h.seed, 2)),
+		DataDir:    h.dataDir,
+		Monochrome: h.mono,
 	})
 	h.model, h.last = m, m.Init()
+	t.Cleanup(func() { h.model.(app.Model).Close() })
 	for _, f := range h.afterLaunch {
 		f()
 	}
@@ -148,6 +154,12 @@ func (h *harness) quitRequested() bool {
 	}
 	_, ok := h.last().(tea.QuitMsg)
 	return ok
+}
+
+// exitStatus is the status the shellfish process would exit with once the
+// app quits, as main reads it.
+func (h *harness) exitStatus() int {
+	return h.model.(app.Model).ExitStatus()
 }
 
 // sighting is where the Fish was seen in one rendered frame.

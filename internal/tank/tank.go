@@ -75,7 +75,7 @@ type fish struct {
 func New(r *rand.Rand, width, height int) *Tank {
 	t := &Tank{rand: r}
 	t.Resize(width, height)
-	t.fish.x = float64((t.width - FishWidth) / 2)
+	t.fish.x = float64((t.width - FishWidth + 1) / 2) // centres a 10-cell drawing
 	t.fish.y = float64((t.waterRows() - FishHeight) / 2)
 	t.keepFishInside()
 	return t

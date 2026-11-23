@@ -4,9 +4,11 @@ package tank
 // seconds. A cell is about twice as tall as it is wide, so vertical speeds are
 // kept lower than horizontal ones.
 
-// FishWidth and FishHeight are the size of the Fish's drawing, in cells.
+// FishWidth and FishHeight are the size of the box the Fish's drawing fits
+// in, in cells. Most faces make it 10 cells wide; the box leaves room for a
+// face with a two-cell character.
 const (
-	FishWidth  = 10
+	FishWidth  = 11
 	FishHeight = 3
 )
 

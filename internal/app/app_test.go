@@ -21,7 +21,7 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"                 {",
 		"                  }",
 		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
-		" Bubbles · Age 0 days",
+		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
 	}
 	got := h.view()
 	if len(got) != len(want) {
