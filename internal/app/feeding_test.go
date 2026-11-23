@@ -338,6 +338,7 @@ func TestTheGreetingDoesNotBlockFeeding(t *testing.T) {
 	if got := strings.Count(h.view()[waterTop], pellet); got != 1 {
 		t.Errorf("f while greeting put %d pellets on the top row of water, want 1:\n%s", got, h.screen())
 	}
+	h.advance(time.Second) // for the pellet to sink out of the greeting's way
 	if !strings.Contains(h.screen(), "missed you") {
 		t.Errorf("feeding dismissed the greeting:\n%s", h.screen())
 	}

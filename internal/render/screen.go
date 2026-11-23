@@ -43,7 +43,7 @@ type Status struct {
 func Screen(sc Scene) string {
 	g := drawTank(sc.Tank, sc.Look)
 	if sc.Away > 0 {
-		drawGreeting(g, greeting(sc.Status.Name, sc.Away))
+		drawGreeting(g, greeting(sc.Status.Name, sc.Away), sc.Tank.Food)
 	}
 	water := g.rows()
 	bottom := statusLine(sc.Status, sc.Tank.Width)
@@ -89,11 +89,15 @@ func count(n int, unit string) string {
 }
 
 // drawGreeting draws text, centred and wrapped to fit, over the water from
-// GreetingRow down. Only the text's own cells are covered, and never the
-// sand.
-func drawGreeting(g grid, text string) {
+// GreetingRow down. It covers only the text's own cells, never the sand,
+// and never food, so Food dropped while it is up shows at once.
+func drawGreeting(g grid, text string, food []tank.Food) {
 	if len(g) == 0 {
 		return
+	}
+	under := map[[2]int]bool{}
+	for _, fd := range food {
+		under[[2]int{fd.Col, fd.Row}] = true
 	}
 	width := len(g[0])
 	lines := strings.Split(ansi.Wordwrap(text, width-2, ""), "\n")
@@ -109,7 +113,9 @@ func drawGreeting(g grid, text string) {
 		}
 		x := left
 		for _, c := range line {
-			g.set(x, y, c, plainInk)
+			if !under[[2]int{x, y}] {
+				g.set(x, y, c, plainInk)
+			}
 			x += runeWidth(c)
 		}
 	}

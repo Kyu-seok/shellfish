@@ -67,10 +67,9 @@ func TestTheGreetingIsDrawnNearTheTopOfTheTank(t *testing.T) {
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(60, 14)
 
-	// Just below the top row of water, where f drops Food.
 	rows := h.view()
-	if !strings.Contains(rows[waterTop+1], "Bubbles missed you!") {
-		t.Errorf("row %d = %q, want the greeting there:\n%s", waterTop+1, rows[waterTop+1], h.screen())
+	if !strings.Contains(rows[waterTop], "Bubbles missed you!") {
+		t.Errorf("top row of water = %q, want the greeting there:\n%s", rows[waterTop], h.screen())
 	}
 	if h.fishMood() != "Content" {
 		t.Errorf("the greeting hides the Fish:\n%s", h.screen())
