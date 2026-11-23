@@ -334,9 +334,13 @@ func findFish(raw []string) (sighting, bool) {
 		}
 		x0, y0, x1, y1 := eyeArea(left)
 		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
-		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) {
+		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeGap(rows, s.left, s.top, left)
+		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) || mono {
 			s.facingLeft = left
 			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
+			if mono {
+				return s, true // a silhouette: no mood, mouth or tail to read
+			}
 			break
 		}
 	}
@@ -387,6 +391,42 @@ func findFish(raw []string) (sighting, bool) {
 		s.tailLift = float64(rowSum) / float64(pixels)
 	}
 	return s, true
+}
+
+// filled reports whether the Fish's pixel x, y is filled, counting pixels
+// from the window's top-left, 2 to a cell across and 3 down.
+func filled(rows []string, x, y int) bool {
+	if x < 0 || y < 0 || y/3 >= len(rows) {
+		return false
+	}
+	row := cells(rows[y/3])
+	if x/2 >= len(row) || !isFishCell(row[x/2]) {
+		return false
+	}
+	return sextantMask(row[x/2])&(1<<(y%3*2+x%2)) != 0
+}
+
+// eyeGap reports whether the Fish whose box's top-left is left, top has its
+// eye as a gap in its silhouette: the eye's middle pixel is clear, with the
+// Fish filled to either side of it and below.
+func eyeGap(rows []string, left, top int, facingLeft bool) bool {
+	ex := art.Eye.X
+	if facingLeft {
+		ex = art.W - ex
+	}
+	x, y := 2*left+int(2*ex-0.5), 3*top+int(1.5*art.Eye.Y-0.5)
+	if filled(rows, x, y) {
+		return false
+	}
+	reach := func(dx, dy int) bool {
+		for i := 1; i < 6; i++ {
+			if filled(rows, x+i*dx, y+i*dy) {
+				return true
+			}
+		}
+		return false
+	}
+	return reach(-1, 0) && reach(1, 0) && reach(0, 1)
 }
 
 // sextantMask is which of a cell's 2×3 pixels the character c fills: bits
