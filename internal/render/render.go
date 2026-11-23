@@ -4,6 +4,8 @@ package render
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
@@ -24,8 +26,8 @@ var (
 )
 
 // Tank draws the Tank as rows of exactly s.Width cells: water, seaweed and the
-// Fish above a sandy floor.
-func Tank(s tank.Snapshot) []string {
+// Fish, in fishColour (such as "#FFB3BA"), above a sandy floor.
+func Tank(s tank.Snapshot, fishColour string) []string {
 	if s.Width <= 0 || s.Height <= 0 {
 		return nil
 	}
@@ -45,7 +47,7 @@ func Tank(s tank.Snapshot) []string {
 		}
 	}
 	drawFish(g, s.Fish)
-	return g.rows()
+	return g.rows(lipgloss.NewStyle().Foreground(lipgloss.Color(fishColour)))
 }
 
 func drawFish(g grid, f tank.Fish) {
@@ -62,9 +64,16 @@ func drawFish(g grid, f tank.Fish) {
 		if i == 1 {
 			copy(cells[tailAt:], []rune(tail))
 		}
+		// Spaces around the drawing are see-through; spaces inside it are not.
+		first, last := len(cells), -1
 		for j, c := range cells {
 			if c != ' ' {
-				g.set(f.Col+j, f.Row+i, c)
+				first, last = min(first, j), j
+			}
+		}
+		for j, c := range cells {
+			if j >= first && j <= last {
+				g.setFish(f.Col+j, f.Row+i, c)
 			}
 		}
 	}
@@ -97,28 +106,58 @@ func mirrorRow(s string) string {
 	return string(r)
 }
 
-// grid is the screen, one rune per cell. Every character drawn is one cell wide.
-type grid [][]rune
+// grid is the screen, one cell per character. Every character drawn is one
+// cell wide.
+type grid [][]cell
+
+type cell struct {
+	c    rune
+	fish bool // part of the Fish, drawn in its colour
+}
 
 func newGrid(w, h int) grid {
 	g := make(grid, h)
 	for y := range g {
-		g[y] = []rune(strings.Repeat(" ", w))
+		g[y] = make([]cell, w)
+		for x := range g[y] {
+			g[y][x].c = ' '
+		}
 	}
 	return g
 }
 
 // set draws c at x, y, clipping anything outside.
-func (g grid) set(x, y int, c rune) {
+func (g grid) set(x, y int, c rune) { g.put(x, y, cell{c: c}) }
+
+// setFish draws c at x, y as part of the Fish.
+func (g grid) setFish(x, y int, c rune) { g.put(x, y, cell{c: c, fish: true}) }
+
+func (g grid) put(x, y int, c cell) {
 	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
 		g[y][x] = c
 	}
 }
 
-func (g grid) rows() []string {
+// rows renders the grid, styling each run of Fish cells with fish.
+func (g grid) rows(fish lipgloss.Style) []string {
 	out := make([]string, len(g))
-	for y, r := range g {
-		out[y] = string(r)
+	for y, row := range g {
+		var b strings.Builder
+		for x := 0; x < len(row); {
+			end := x
+			var run []rune
+			for end < len(row) && row[end].fish == row[x].fish {
+				run = append(run, row[end].c)
+				end++
+			}
+			if row[x].fish {
+				b.WriteString(fish.Render(string(run)))
+			} else {
+				b.WriteString(string(run))
+			}
+			x = end
+		}
+		out[y] = b.String()
 	}
 	return out
 }

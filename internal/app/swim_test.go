@@ -7,7 +7,7 @@ import (
 
 func TestFishWandersAroundTheTankWithoutLeavingIt(t *testing.T) {
 	for seed := range uint64(5) {
-		h := newHarness(t, withSeed(seed))
+		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(80, 24)
 		seen := h.watch(2 * time.Minute)
 
@@ -28,7 +28,7 @@ func TestFishWandersAroundTheTankWithoutLeavingIt(t *testing.T) {
 func TestFishHoldsStillBeforeTurningAround(t *testing.T) {
 	const hold = 3 // frames the Fish must stay in one column before it mirrors
 	for seed := range uint64(5) {
-		h := newHarness(t, withSeed(seed))
+		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(80, 24)
 		seen := h.watch(2 * time.Minute)
 
