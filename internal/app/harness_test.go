@@ -274,7 +274,7 @@ func colours(raw []string, x0, y0, x1, y1 int) map[string]bool {
 
 // eyeArea is the cells of the box the eye is drawn in, facing left or
 // right, counted from the box's top-left.
-func eyeArea(left bool) (x0, y0, x1, y1 int) {
+func eyeArea(art fish.Art, body tank.Body, left bool) (x0, y0, x1, y1 int) {
 	e := art.Eye
 	x0, x1 = int(e.X-e.R), int(e.X+e.R)
 	if left {
@@ -318,7 +318,12 @@ func isDark(colour string) bool {
 
 // findFish finds the Fish in a frame's coloured rows and reads how it looks:
 // which way its eye faces, what its eye shows and whether its mouth is open.
-func findFish(raw []string) (sighting, bool) {
+// The Fish is a clownfish.
+func findFish(raw []string) (sighting, bool) { return findSpecies(raw, fish.Clownfish) }
+
+// findSpecies is findFish for a Fish of Species sp.
+func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
+	art, body := sp.Art(), tank.BodyOf(sp)
 	rows := plain(raw)
 	minX, minY, maxX, maxY, ok := fishBounds(rows)
 	if !ok {
@@ -332,9 +337,9 @@ func findFish(raw []string) (sighting, bool) {
 		if left {
 			s.left = minX
 		}
-		x0, y0, x1, y1 := eyeArea(left)
+		x0, y0, x1, y1 := eyeArea(art, body, left)
 		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
-		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeGap(rows, s.left, s.top, left)
+		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeGap(rows, art, s.left, s.top, left)
 		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) || mono {
 			s.facingLeft = left
 			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
@@ -347,7 +352,7 @@ func findFish(raw []string) (sighting, bool) {
 	if !s.intact {
 		return s, true
 	}
-	x0, y0, x1, y1 := eyeArea(s.facingLeft)
+	x0, y0, x1, y1 := eyeArea(art, body, s.facingLeft)
 	white, lid := hasColour(eye, art.Eye.White), hasColour(eye, art.Eye.Lid)
 	switch {
 	case hasColour(colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1+1), tearColour):
@@ -406,10 +411,10 @@ func filled(rows []string, x, y int) bool {
 	return sextantMask(row[x/2])&(1<<(y%3*2+x%2)) != 0
 }
 
-// eyeGap reports whether the Fish whose box's top-left is left, top has its
-// eye as a gap in its silhouette: the eye's middle pixel is clear, with the
-// Fish filled to either side of it and below.
-func eyeGap(rows []string, left, top int, facingLeft bool) bool {
+// eyeGap reports whether the Fish drawn as art, whose box's top-left is
+// left, top, has its eye as a gap in its silhouette: the eye's middle
+// pixel is clear, with the Fish filled to either side of it and below.
+func eyeGap(rows []string, art fish.Art, left, top int, facingLeft bool) bool {
 	ex := art.Eye.X
 	if facingLeft {
 		ex = art.W - ex

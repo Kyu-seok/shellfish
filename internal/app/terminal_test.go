@@ -143,7 +143,7 @@ func TestMonochromeFishHasAGapForItsEye(t *testing.T) {
 		if !ok || !s.intact {
 			t.Fatalf("frame %d: no whole Fish found in monochrome:\n%s", i, strings.Join(rows, "\n"))
 		}
-		if !eyeGap(rows, s.left, s.top, s.facingLeft) {
+		if !eyeGap(rows, art, s.left, s.top, s.facingLeft) {
 			t.Fatalf("frame %d: the Fish's eye is not a gap in its silhouette:\n%s", i, strings.Join(rows, "\n"))
 		}
 		turned[s.facingLeft] = true

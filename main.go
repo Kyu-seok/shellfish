@@ -62,7 +62,7 @@ func run() (int, error) {
 }
 
 // monochrome reports whether to draw without colour: when NO_COLOR is set, or
-// the terminal shows fewer than 256 colours, too few for the pastel Fish.
+// the terminal shows fewer than 256 colours, too few for the Fish's colours.
 func monochrome() bool {
 	return os.Getenv("NO_COLOR") != "" || lipgloss.ColorProfile() > termenv.ANSI256
 }

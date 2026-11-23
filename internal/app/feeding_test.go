@@ -382,7 +382,7 @@ func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
 	if !ok {
 		t.Fatalf("no Fish to click on:\n%s", h.screen())
 	}
-	x0, y0, _, _ := eyeArea(fish.facingLeft)
+	x0, y0, _, _ := eyeArea(art, body, fish.facingLeft)
 	eyeCol, eyeRow := fish.left+x0, fish.top+y0
 	h.click(eyeCol, eyeRow)
 
