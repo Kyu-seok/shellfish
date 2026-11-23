@@ -84,24 +84,6 @@ func TestABrokenSaveFileIsNotOverwrittenWhileOpen(t *testing.T) {
 	}
 }
 
-// blockSaves makes every save to h's data folder fail, by putting a folder
-// where the save file goes, and returns a func that lets saves through again.
-func (h *harness) blockSaves() (unblock func()) {
-	h.t.Helper()
-	path := filepath.Join(h.dataDir, "fish.json")
-	if err := os.Remove(path); err != nil {
-		h.t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(path, "in-the-way"), 0o755); err != nil {
-		h.t.Fatal(err)
-	}
-	return func() {
-		if err := os.RemoveAll(path); err != nil {
-			h.t.Fatal(err)
-		}
-	}
-}
-
 func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)

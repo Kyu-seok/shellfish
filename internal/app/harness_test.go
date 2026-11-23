@@ -2,6 +2,8 @@ package app_test
 
 import (
 	"math/rand/v2"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -175,6 +177,16 @@ type sighting struct {
 // fishBoxWidth is how many cells wide the box the Fish is drawn in is.
 const fishBoxWidth = 11
 
+// The Fish's faces as it faces right: one for each Mood, and the ones it
+// wears just before it eats and while it blinks.
+const (
+	contentFace  = "◕ ᴗ"
+	hungryFace   = "• _"
+	starvingFace = "; ﹏"
+	eatingFace   = "◕ o"
+	blinkFace    = "- ᴗ"
+)
+
 // The Fish's back and belly, the same either way it faces.
 const (
 	fishBack  = ".-~~-."
@@ -313,4 +325,76 @@ func (h *harness) cellAt(col, row int) string {
 		return ""
 	}
 	return string(cells[col])
+}
+
+// statusLine is the bottom row of the Tank, trimmed.
+func (h *harness) statusLine() string {
+	got := h.view()
+	return strings.TrimSpace(got[len(got)-1])
+}
+
+// screen is the whole rendered Tank as plain text.
+func (h *harness) screen() string { return strings.Join(h.view(), "\n") }
+
+// reopen quits h and launches the app again on its data folder, with the
+// same random seed, and the clock moved by d, as if the user had come back d
+// later.
+func (h *harness) reopen(d time.Duration) *harness {
+	h.t.Helper()
+	h.press("q")
+	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)), withSeed(h.seed))
+}
+
+// count is how many times glyph is drawn in the Tank's water, above the sand.
+func (h *harness) count(glyph string) int {
+	rows := h.view()
+	return strings.Count(strings.Join(rows[:floorRow(rows)], "\n"), glyph)
+}
+
+// meal advances up to limit, a frame at a time, until the Fish eats: until
+// the saved Hunger drops. It returns the saved Hunger after the meal and the
+// frames leading up to it, or fails the test if the Fish doesn't eat in time.
+func (h *harness) meal(limit time.Duration) (hunger float64, frames []string) {
+	h.t.Helper()
+	before := readSave(h.t, h.dataDir).Hunger
+	for range int(limit / app.FrameInterval) {
+		h.advance(app.FrameInterval)
+		frames = append(frames, h.screen())
+		if after := readSave(h.t, h.dataDir).Hunger; after < before {
+			return after, frames
+		}
+	}
+	h.t.Fatalf("the Fish ate nothing in %v:\n%s", limit, h.screen())
+	return 0, nil
+}
+
+// bottom is the lowest row of water, just above the sand.
+func (h *harness) bottom() int { return floorRow(h.view()) - 1 }
+
+// frames advances d, a frame at a time, and returns every frame's rows.
+func (h *harness) frames(d time.Duration) [][]string {
+	var out [][]string
+	for range int(d / app.FrameInterval) {
+		h.advance(app.FrameInterval)
+		out = append(out, h.view())
+	}
+	return out
+}
+
+// blockSaves makes every save to h's data folder fail, by putting a folder
+// where the save file goes, and returns a func that lets saves through again.
+func (h *harness) blockSaves() (unblock func()) {
+	h.t.Helper()
+	path := filepath.Join(h.dataDir, "fish.json")
+	if err := os.Remove(path); err != nil {
+		h.t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(path, "in-the-way"), 0o755); err != nil {
+		h.t.Fatal(err)
+	}
+	return func() {
+		if err := os.RemoveAll(path); err != nil {
+			h.t.Fatal(err)
+		}
+	}
 }

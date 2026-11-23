@@ -6,30 +6,6 @@ import (
 	"time"
 )
 
-// statusLine is the bottom row of the Tank, trimmed.
-func (h *harness) statusLine() string {
-	got := h.view()
-	return strings.TrimSpace(got[len(got)-1])
-}
-
-// screen is the whole rendered Tank as plain text.
-func (h *harness) screen() string { return strings.Join(h.view(), "\n") }
-
-// reopen quits h and launches the app again on its data folder, with the
-// same random seed, and the clock moved by d, as if the user had come back d
-// later.
-func (h *harness) reopen(d time.Duration) *harness {
-	h.t.Helper()
-	h.press("q")
-	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)), withSeed(h.seed))
-}
-
-const (
-	contentFace  = "◕ ᴗ"
-	hungryFace   = "• _"
-	starvingFace = "; ﹏"
-)
-
 func TestHungerCatchesUpOnTimeAway(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

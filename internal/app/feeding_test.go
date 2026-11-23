@@ -27,12 +27,6 @@ func TestClickDropsFoodAtThatExactCell(t *testing.T) {
 	}
 }
 
-// count is how many times glyph is drawn in the Tank's water, above the sand.
-func (h *harness) count(glyph string) int {
-	rows := h.view()
-	return strings.Count(strings.Join(rows[:floorRow(rows)], "\n"), glyph)
-}
-
 func TestFOrSpaceDropsFoodAtTheTopOfTheTank(t *testing.T) {
 	for _, key := range []string{"f", " "} {
 		h := newHarness(t, named("Bubbles"))
@@ -110,26 +104,6 @@ func TestSelectedFoodKindLeavesRoomForTheKeyHint(t *testing.T) {
 	if !strings.HasSuffix(status, keyHint) {
 		t.Errorf("status line is %q, want it to end with the key hint", status)
 	}
-}
-
-// eatingFace is the Fish's face just before it eats.
-const eatingFace = "◕ o"
-
-// meal advances up to limit, a frame at a time, until the Fish eats: until
-// the saved Hunger drops. It returns the saved Hunger after the meal and the
-// frames leading up to it, or fails the test if the Fish doesn't eat in time.
-func (h *harness) meal(limit time.Duration) (hunger float64, frames []string) {
-	h.t.Helper()
-	before := readSave(h.t, h.dataDir).Hunger
-	for range int(limit / app.FrameInterval) {
-		h.advance(app.FrameInterval)
-		frames = append(frames, h.screen())
-		if after := readSave(h.t, h.dataDir).Hunger; after < before {
-			return after, frames
-		}
-	}
-	h.t.Fatalf("the Fish ate nothing in %v:\n%s", limit, h.screen())
-	return 0, nil
 }
 
 // hungerAfter launches on a Fish left alone for d, so it is that hungry,
@@ -237,8 +211,6 @@ func TestTheFishIsSavedAfterEachMeal(t *testing.T) {
 }
 
 // bottom is the lowest row of water, where Food comes to rest on the sand.
-func (h *harness) bottom() int { return floorRow(h.view()) - 1 }
-
 func TestAFullFishIgnoresFood(t *testing.T) {
 	h := newHarness(t, named("Bubbles")) // born Full
 	h.resize(80, 24)

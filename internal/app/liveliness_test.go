@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	blinkFace = "- ᴗ"
-	heart     = "♥"
-	note      = "♪"
+	heart = "♥"
+	note  = "♪"
 )
 
 // bubbleSizes are a bubble's glyphs, smallest first.
@@ -34,16 +33,6 @@ func inMood(t *testing.T, mood string, opts ...option) *harness {
 		h = h.reopen(26 * time.Hour)
 	}
 	return h
-}
-
-// frames advances d, a frame at a time, and returns every frame's rows.
-func (h *harness) frames(d time.Duration) [][]string {
-	var out [][]string
-	for range int(d / app.FrameInterval) {
-		h.advance(app.FrameInterval)
-		out = append(out, h.view())
-	}
-	return out
 }
 
 // droopSettle is how long a Starving Fish may take to droop to the lower
