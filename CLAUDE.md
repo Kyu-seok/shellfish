@@ -1,3 +1,11 @@
+## Checks
+
+`make check` is the gate (gofmt, vet, repo rules, tests, Windows build); CI runs it on every push. Run `make hooks` once per clone to turn on the pre-commit hook. Repo rules live in `tools/checkrules`.
+
+## Merging
+
+Merge command: `git merge --ff-only <branch>`. If it refuses, run `git merge --no-ff <branch> && make check`.
+
 ## Agent skills
 
 ### Issue tracker

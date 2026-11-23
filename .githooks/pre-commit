@@ -1,0 +1,3 @@
+#!/bin/sh
+# Fast checks before each commit. The full gate is `make check`.
+exec make --no-print-directory precommit
