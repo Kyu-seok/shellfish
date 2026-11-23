@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Kyu-seok/shellfish/internal/app"
+	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
 // isWave reports whether row is the water's surface: a whole row of wave.
@@ -77,7 +78,7 @@ func TestTheFloorIsTexturedSandThatHoldsStill(t *testing.T) {
 	}
 }
 
-func TestTwoShellsRestOnTheSandAndStayPut(t *testing.T) {
+func TestTwoShellsRestOnTheSandClearOfTheSeaweedAndStayPut(t *testing.T) {
 	for seed := range uint64(3) {
 		h := newHarness(t, named("Bubbles"), withSeed(seed))
 		h.resize(80, 24)
@@ -100,6 +101,17 @@ func TestTwoShellsRestOnTheSandAndStayPut(t *testing.T) {
 			h.advance(app.FrameInterval)
 			rows := h.view()
 			fish, seen := findFish(rows)
+			for _, p := range h.plants() {
+				if seen && p.col >= fish.left && p.col < fish.left+fishBoxWidth && p.row >= fish.top && p.row < fish.top+3 {
+					continue // the Fish, not seaweed
+				}
+				for shell, x := range where {
+					if d := abs(p.col - x); d <= tank.ShellClearance {
+						t.Fatalf("seed %d frame %d: seaweed %q at column %d stands %d from the %q shell at %d, want more than %d:\n%s",
+							seed, i, p.glyph, p.col, d, shell, x, tank.ShellClearance, strings.Join(rows, "\n"))
+					}
+				}
+			}
 			for shell, x := range where {
 				hidden := seen && x >= fish.left && x < fish.left+fishBoxWidth && above >= fish.top && above < fish.top+3
 				if got := cells(rows[above])[x]; got != shell && !hidden {

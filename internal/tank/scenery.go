@@ -17,7 +17,8 @@ func (t *Tank) placeShells() {
 }
 
 // shellFits reports whether a shell can rest at column x: inside the Tank,
-// on a column of its own, and ShellClearance clear of every stalk.
+// on a column of its own, and ShellClearance clear of the SeaweedWidth
+// columns every stalk stands and sways in.
 func (t *Tank) shellFits(x int) bool {
 	if x < 0 || x >= t.width {
 		return false
@@ -28,7 +29,7 @@ func (t *Tank) shellFits(x int) bool {
 		}
 	}
 	for _, st := range t.seaweed {
-		if x >= st.col-ShellClearance && x <= st.col+1+ShellClearance {
+		if x >= st.col-ShellClearance && x <= st.col+SeaweedWidth-1+ShellClearance {
 			return false
 		}
 	}

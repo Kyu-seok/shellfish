@@ -61,8 +61,9 @@ const (
 	SeaweedWidth = 4
 	// GrassHeight is the tallest a tuft of grass grows, in rows.
 	GrassHeight = 2
-	// ShellClearance is the fewest columns of sand between a shell and a stalk,
-	// so a swaying kelp tip or a grass tuft never stands on a shell.
+	// ShellClearance is the fewest columns of sand between a shell and the
+	// SeaweedWidth columns a stalk stands in, so a leaning kelp tip or a grass
+	// blade never stands on or beside a shell.
 	ShellClearance = 3
 	// FishClearance is the rows kept free above the tallest stalk so the Fish
 	// can always swim over it.
