@@ -20,11 +20,17 @@ const (
 	Anglerfish
 )
 
-// AllSpecies are every Species, in the order the picker shows them.
-var AllSpecies = []Species{
-	Clownfish, Goldfish, Pufferfish, BlueTang, Betta,
-	Angelfish, Koi, Guppy, NeonTetra, Anglerfish,
-}
+// AllSpecies are every Species, in the order the picker shows them: the
+// order of the Species constants.
+var AllSpecies = func() []Species {
+	var all []Species
+	for s := range species {
+		if Species(s) != NoSpecies {
+			all = append(all, Species(s))
+		}
+	}
+	return all
+}()
 
 // String is the Species' name, which is also how it is saved, so it never
 // changes.
@@ -69,8 +75,7 @@ type Eye struct {
 }
 
 // species describes each Species, in the order of the Species constants:
-// adding a Species means adding a constant, a row here and an entry in
-// AllSpecies.
+// adding a Species means adding a constant and a row here.
 var species = []struct {
 	name  string // stable, for the save file
 	title string // for the picker

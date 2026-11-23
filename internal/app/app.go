@@ -62,8 +62,8 @@ type Model struct {
 // New builds the app from its dependencies. It takes the data folder's lock,
 // then loads the saved Fish, or starts the first-launch flow (Species picker,
 // then naming) if there is none. A Fish saved before Species existed is shown
-// the Species picker before its Tank opens. If
-// another Tank holds the lock, the launch is refused: see ExitStatus.
+// the Species picker before its Tank opens. If another Tank holds the lock,
+// the launch is refused: see ExitStatus.
 func New(deps Deps) Model {
 	now := deps.Clock.Now()
 	m := Model{deps: deps, now: now, lastSaved: now}
@@ -336,9 +336,9 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// hasFish reports whether a Fish is living in this Tank: it has a Species, has been named and
-// loaded without error, and this launch holds the lock. A refused launch has
-// no Fish of its own, so it never saves.
+// hasFish reports whether a Fish is living in this Tank: it has a Species,
+// has been named and loaded without error, and this launch holds the lock. A
+// refused launch has no Fish of its own, so it never saves.
 func (m Model) hasFish() bool { return m.refusal == "" && !m.picking && !m.naming && m.err == nil }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,

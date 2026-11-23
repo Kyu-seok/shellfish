@@ -60,7 +60,7 @@ func Load(dir string) (fish.Fish, error) {
 			return fish.Fish{}, fmt.Errorf("saved Fish is of unknown Species %q", s.Species)
 		}
 	default:
-		return fish.Fish{}, fmt.Errorf("saved Fish has schema version %d, this shellfish reads %d", s.Version, schemaVersion)
+		return fish.Fish{}, fmt.Errorf("saved Fish has schema version %d, this shellfish reads versions %d to %d", s.Version, speciesless, schemaVersion)
 	}
 	return fish.Fish{
 		Name:          s.Name,
