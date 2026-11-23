@@ -40,13 +40,26 @@ func inMood(t *testing.T, mood string, opts ...option) *harness {
 const droopSettle = 4 * time.Second
 
 // checkLow fails the test if the Fish rises out of the lower 40% of the rows
-// its top can reach in any of seen. Its bob may lift it one row more.
+// its top can reach in any of seen. Its bob may lift it one row more. Over
+// seaweed it may rise as high as it must to clear it.
 func checkLow(t *testing.T, h *harness, seen []sighting, about string) {
 	t.Helper()
 	lowestTop := floorRow(h.view()) - 3 // a Fish resting just above the sand
 	highest := int(math.Ceil(0.6*float64(lowestTop))) - 1
+	weed := map[int]bool{} // columns seaweed reaches as it sways
+	for _, p := range h.plants() {
+		weed[p.col-1], weed[p.col], weed[p.col+1] = true, true, true
+	}
+	over := func(s sighting) bool {
+		for x := s.left; x < s.left+fishBoxWidth; x++ {
+			if weed[x] {
+				return true
+			}
+		}
+		return false
+	}
 	for i, s := range seen {
-		if s.top < highest {
+		if s.top < highest && !over(s) {
 			t.Fatalf("%s, frame %d: a Starving Fish swam up to row %d, above the lower 40%% of the water (row %d):\n%s",
 				about, i, s.top, highest, h.screen())
 		}
@@ -59,7 +72,9 @@ func TestAStarvingFishStaysLowInTheTank(t *testing.T) {
 		size := sizes[seed%uint64(len(sizes))]
 		h := inMood(t, "Starving", withSeed(seed))
 		h.resize(size.w, size.h)
-		h.watch(droopSettle) // time to droop from the middle of the Tank
+		// Time to droop from the middle of the Tank, and for the welcome-back
+		// greeting, which can hide a Fish high in a short Tank, to go.
+		h.advance(droopSettle + time.Second)
 
 		checkLow(t, h, h.watch(45*time.Second), fmt.Sprintf("seed %d, %dx%d", seed, size.w, size.h))
 	}

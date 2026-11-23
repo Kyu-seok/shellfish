@@ -52,7 +52,12 @@ const (
 	SeaweedMinHeight = 2
 	SeaweedMaxHeight = 5
 	// SeaweedSwayPeriod is how long a stalk takes to sway one way and back.
-	SeaweedSwayPeriod = 1.6
+	SeaweedSwayPeriod = 3.2
+	// SeaweedWidth is the columns a stalk stands in: kelp is two wide and
+	// leans up to a column either way as it sways.
+	SeaweedWidth = 4
+	// GrassHeight is the tallest a tuft of grass grows, in rows.
+	GrassHeight = 2
 	// FishClearance is the rows kept free above the tallest stalk so the Fish
 	// can always swim over it.
 	FishClearance = 2

@@ -188,8 +188,13 @@ func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 
 	_, frames := h.meal(30 * time.Second)
 	opened := -1
+	// Its face, read as it would face right, whichever way it faces.
+	mouthOpen := func(frame string) bool {
+		s, ok := findFish(strings.Split(frame, "\n"))
+		return ok && s.face == eatingFace
+	}
 	for i, frame := range frames {
-		if strings.Contains(frame, eatingFace) {
+		if mouthOpen(frame) {
 			opened = i
 		}
 	}
@@ -199,7 +204,7 @@ func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 	case len(frames)-opened > 3:
 		t.Errorf("the Fish last showed %q %d frames before it ate, want just before", eatingFace, len(frames)-opened)
 	}
-	if strings.Contains(frames[0], eatingFace) {
+	if mouthOpen(frames[0]) {
 		t.Errorf("the Fish opened its mouth as soon as the Food was dropped:\n%s", frames[0])
 	}
 }

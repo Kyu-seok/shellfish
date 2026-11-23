@@ -270,11 +270,16 @@ func floorRow(rows []string) int {
 	return -1
 }
 
-// seaweedCells counts the seaweed drawn in a frame.
+// seaweedCells counts the kelp and grass characters drawn in a frame's
+// water, above the sand.
 func seaweedCells(rows []string) int {
 	n := 0
-	for _, row := range rows {
-		n += strings.Count(row, "{") + strings.Count(row, "}")
+	for _, row := range rows[:max(floorRow(rows), 0)] {
+		for _, c := range row {
+			if strings.ContainsRune(`()\|/`, c) {
+				n++
+			}
+		}
 	}
 	return n
 }

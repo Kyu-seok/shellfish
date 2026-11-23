@@ -17,9 +17,9 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"             .-~~-.",
 		"          ><(  ◕ ᴗ )",
 		"             `-..-'",
-		"                            {",
-		"                             }",
-		"                            {",
+		"                          (",
+		"                            )",
+		"                           (",
 		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
 		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
 	}

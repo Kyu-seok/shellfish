@@ -10,3 +10,11 @@ const HungerMeterCells = 10
 
 // GreetingRow is the row of the Tank the welcome-back greeting starts on.
 const GreetingRow = 1
+
+// KelpLean is how far, in columns, a kelp stalk's tip leans at the height of
+// its sway, before it is held to one column either way.
+const KelpLean = 1.4
+
+// GrassBend is how far into its sway a tuft of grass must be before its
+// blade leans over.
+const GrassBend = 0.35

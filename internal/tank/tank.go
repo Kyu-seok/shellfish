@@ -67,12 +67,15 @@ type Meal struct {
 	Col, Row int
 }
 
-// Stalk is one piece of seaweed growing up from the floor. It is two cells
-// wide, Col and Col+1, and sways between them.
+// Stalk is one piece of seaweed growing up from the floor: kelp, or a short
+// tuft of grass. It stands in SeaweedWidth cells from Col, and sways within
+// them.
 type Stalk struct {
 	Col, Height int
-	// Sway flips as the stalk sways.
-	Sway bool
+	Grass       bool
+	// Sway is where the stalk is in its sway, in turns from 0 up to 1. It
+	// moves on continuously.
+	Sway float64
 }
 
 // Tank is the running simulation.
@@ -97,7 +100,8 @@ type food struct {
 
 type stalk struct {
 	col, height int
-	phase       float64 // where in its sway it starts
+	grass       bool
+	phase       float64 // where in its sway it starts, in turns
 }
 
 // mode is what the Fish is doing.
@@ -186,7 +190,7 @@ func (t *Tank) DropNearTop(k fish.FoodKind) bool {
 func (t *Tank) restRow(col int) int {
 	row := t.waterRows() - 1
 	for _, st := range t.seaweed {
-		if col == st.col || col == st.col+1 {
+		if col >= st.col && col < st.col+SeaweedWidth {
 			row = t.waterRows() - 1 - st.height
 		}
 	}
@@ -443,7 +447,8 @@ func (t *Tank) Snapshot() Snapshot {
 		snap.Seaweed = append(snap.Seaweed, Stalk{
 			Col:    st.col,
 			Height: st.height,
-			Sway:   int(t.clock*2/SeaweedSwayPeriod+st.phase)%2 == 1,
+			Grass:  st.grass,
+			Sway:   math.Mod(t.clock/SeaweedSwayPeriod+st.phase, 1),
 		})
 	}
 	t.snapshotDecor(&snap)
@@ -592,7 +597,7 @@ func (t *Tank) boxFits(x, y float64) bool {
 		return false
 	}
 	for _, st := range t.seaweed {
-		overlaps := st.col <= col+t.body.Width-1 && st.col+1 >= col
+		overlaps := st.col <= col+t.body.Width-1 && st.col+SeaweedWidth-1 >= col
 		if overlaps && bottom >= t.waterRows()-st.height {
 			return false
 		}
@@ -631,13 +636,13 @@ func (t *Tank) keepFishInside() {
 func (t *Tank) growSeaweed() {
 	t.seaweed = t.seaweed[:0]
 	tallest := min(SeaweedMaxHeight, t.waterRows()-t.body.Height-FishClearance)
-	if tallest < 1 || t.width < SeaweedGap+2 {
+	if tallest < 1 || t.width < SeaweedGap+SeaweedWidth {
 		return
 	}
 	shortest := min(SeaweedMinHeight, tallest)
 	// gaps are the empty columns before each stalk, and after the last one.
 	var gaps []int
-	if n := (t.width - SeaweedGap) / (SeaweedGap + 2); n > 0 {
+	if n := (t.width - SeaweedGap) / (SeaweedGap + SeaweedWidth); n > 0 {
 		gaps = make([]int, n+1)
 		for i := range gaps {
 			gaps[i] = SeaweedGap
@@ -649,7 +654,7 @@ func (t *Tank) growSeaweed() {
 			gaps = []int{SeaweedGap, 0}
 		}
 	}
-	spare := t.width - 2*(len(gaps)-1)
+	spare := t.width - SeaweedWidth*(len(gaps)-1)
 	for _, gap := range gaps {
 		spare -= gap
 	}
@@ -661,14 +666,19 @@ func (t *Tank) growSeaweed() {
 		gaps[i]++
 	}
 	col := 0
-	for _, gap := range gaps[:len(gaps)-1] {
+	for i, gap := range gaps[:len(gaps)-1] {
 		col += gap
-		t.seaweed = append(t.seaweed, stalk{
+		st := stalk{
 			col:    col,
 			height: shortest + t.rand.IntN(tallest-shortest+1),
-			phase:  t.rand.Float64() * 2,
-		})
-		col += 2
+			phase:  t.rand.Float64(),
+			grass:  i%3 == 1, // every third stalk, from the second, is grass
+		}
+		if st.grass {
+			st.height = min(st.height, GrassHeight)
+		}
+		t.seaweed = append(t.seaweed, st)
+		col += SeaweedWidth
 	}
 }
 

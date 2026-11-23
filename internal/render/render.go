@@ -4,6 +4,7 @@
 package render
 
 import (
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -92,14 +93,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 		g.set(fl.Col, fl.Row, flourishGlyphs[fl.Kind], in)
 	}
 	for _, st := range s.Seaweed {
-		for i := range st.Height {
-			// Alternate rows lean left and right, and swap as it sways.
-			x, c := st.Col, '{'
-			if (i%2 == 0) != st.Sway {
-				x, c = st.Col+1, '}'
-			}
-			g.set(x, floor-1-i, c, plainInk)
-		}
+		drawStalk(g, st, floor, look.Monochrome)
 	}
 	for _, fd := range s.Food {
 		in := plainInk
@@ -117,6 +111,59 @@ func Tank(s tank.Snapshot, look Look) []string {
 		style = style.Foreground(lipgloss.Color(string(look.Colour)))
 	}
 	return g.rows(style)
+}
+
+// Seaweed colours.
+const (
+	kelpColour    = "#3FA34D"
+	kelpTipColour = "#6CC56F"
+	grassColour   = "#8BD17C"
+)
+
+// drawStalk draws a stalk of seaweed standing on the floor row, in its
+// colours unless monochrome. Kelp is a two-column zigzag of ( and ) that
+// leans more the higher it is, so its base stays put while its tip sways.
+// Grass is a \|/ tuft whose blade on top leans as it sways.
+func drawStalk(g grid, st tank.Stalk, floor int, monochrome bool) {
+	draw := func(x, y int, c rune, colour string) {
+		g.set(x, y, c, plainInk)
+		if !monochrome {
+			g.colour(x, y, colour)
+		}
+	}
+	lean := math.Sin(2 * math.Pi * st.Sway)
+	if st.Grass {
+		for i, c := range `\|/` {
+			draw(st.Col+i, floor-1, c, grassColour)
+		}
+		if st.Height > 1 {
+			x, c := st.Col+1, '|'
+			switch {
+			case lean < -GrassBend:
+				x, c = st.Col, '\\'
+			case lean > GrassBend:
+				x, c = st.Col+2, '/'
+			}
+			draw(x, floor-2, c, grassColour)
+		}
+		return
+	}
+	for i := range st.Height {
+		off := 0
+		if st.Height > 1 {
+			k := float64(i) / float64(st.Height-1)
+			off = int(max(-1, min(1, math.Round(KelpLean*k*k*lean))))
+		}
+		x, c := st.Col+1+off, '('
+		if i%2 == 1 {
+			x, c = x+1, ')'
+		}
+		colour := kelpColour
+		if i == st.Height-1 {
+			colour = kelpTipColour
+		}
+		draw(x, floor-1-i, c, colour)
+	}
 }
 
 // face is the face the Fish wears: eating comes first, then blinking, then
