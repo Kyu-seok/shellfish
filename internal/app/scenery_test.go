@@ -50,3 +50,27 @@ func TestNothingDrawsOnTheSurface(t *testing.T) {
 		}
 	}
 }
+
+func TestTheFloorIsTexturedSandThatHoldsStill(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(80, 24)
+
+	frames := h.frames(5 * time.Second)
+	sand := frames[0][len(frames[0])-2] // just above the status line
+	if strings.Trim(sand, sandGlyphs) != "" {
+		t.Fatalf("the floor %q is not all sand", sand)
+	}
+	for _, want := range []string{"░", "▒", "o"} {
+		if !strings.Contains(sand, want) {
+			t.Errorf("the floor %q has no %q; want textured sand with pebbles", sand, want)
+		}
+	}
+	if strings.Count(sand, "░") <= len([]rune(sand))/2 {
+		t.Errorf("the floor %q is not mostly ░", sand)
+	}
+	for i, rows := range frames {
+		if got := rows[len(rows)-2]; got != sand {
+			t.Fatalf("frame %d: the floor changed from %q to %q", i, sand, got)
+		}
+	}
+}

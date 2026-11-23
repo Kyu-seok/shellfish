@@ -13,8 +13,6 @@ import (
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
-const sand = '░'
-
 // faces is the Fish's face for each Mood, as it faces right.
 var faces = map[fish.Mood]string{
 	fish.Content:  "◕ ᴗ",
@@ -79,9 +77,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 	g := newGrid(s.Width, s.Height)
 	floor := s.Height - 1
 	drawSurface(g, s, look)
-	for x := range s.Width {
-		g.set(x, floor, sand, plainInk)
-	}
+	drawSand(g, s, look)
 	for _, b := range s.Bubbles {
 		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
 	}

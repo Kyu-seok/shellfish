@@ -263,10 +263,13 @@ func findFish(rows []string) (sighting, bool) {
 // waterTop is the top row of water, just below the surface.
 const waterTop = 1
 
+// sandGlyphs are what the sandy floor is made of: sand and pebbles.
+const sandGlyphs = "░▒.,o"
+
 // floorRow is the index of the sandy floor: the last row that is all sand.
 func floorRow(rows []string) int {
 	for y := len(rows) - 1; y >= 0; y-- {
-		if r := strings.TrimRight(rows[y], " "); r != "" && strings.Trim(r, "░") == "" {
+		if r := rows[y]; strings.Contains(r, "░") && strings.Trim(r, sandGlyphs) == "" {
 			return y
 		}
 	}

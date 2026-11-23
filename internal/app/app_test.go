@@ -20,7 +20,7 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"                            {",
 		"                             }",
 		"                            {",
-		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+		"", // the sand
 		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
 	}
 	got := h.view()
@@ -30,10 +30,16 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	if !isWave(got[0]) {
 		t.Errorf("row 0 = %q, want the surface's wave line", got[0])
 	}
-	for i := 1; i < len(want); i++ {
+	if floor := len(got) - 2; floorRow(got) != floor {
+		t.Errorf("row %d = %q, want sand", floor, got[floor])
+	}
+	for i := 1; i < len(want)-2; i++ {
 		if strings.TrimRight(got[i], " ") != want[i] {
 			t.Errorf("row %d = %q, want %q", i, got[i], want[i])
 		}
+	}
+	if status := strings.TrimRight(got[len(got)-1], " "); status != want[len(want)-1] {
+		t.Errorf("status line = %q, want %q", status, want[len(want)-1])
 	}
 }
 
@@ -50,7 +56,7 @@ func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
 				t.Errorf("%dx%d: row %d is %d cells wide", size.w, size.h, i, w)
 			}
 		}
-		if floor := got[len(got)-2]; !strings.Contains(floor, "░░░░") {
+		if floor := got[len(got)-2]; floorRow(got) != len(got)-2 {
 			t.Errorf("%dx%d: row above the status line %q is not sand", size.w, size.h, floor)
 		}
 	}
