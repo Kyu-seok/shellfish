@@ -15,7 +15,7 @@ type Fish struct {
 	Colour Colour
 	Born   time.Time
 
-	// Hunger runs from Full (0) to MaxHunger.
+	// Hunger runs from MinHunger to MaxHunger.
 	Hunger float64
 	// HungerUpdated is when Hunger was last brought up to date.
 	HungerUpdated time.Time
@@ -37,17 +37,17 @@ func Hatch(name string, now time.Time, r *rand.Rand) (Fish, error) {
 		Name:          name,
 		Colour:        Palette[r.IntN(len(Palette))],
 		Born:          now,
-		Hunger:        Full,
+		Hunger:        MinHunger,
 		HungerUpdated: now,
 		LastSeen:      now,
 	}, nil
 }
 
-// Age is the number of whole days since the Fish was named. It is never
+// Age is the number of whole Days since the Fish was named. It is never
 // negative, even if the clock has moved backwards.
 func (f Fish) Age(now time.Time) int {
 	if !now.After(f.Born) {
 		return 0
 	}
-	return int(now.Sub(f.Born) / (24 * time.Hour))
+	return int(now.Sub(f.Born) / Day)
 }

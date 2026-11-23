@@ -247,7 +247,7 @@ func (t *Tank) settleFood(s float64) {
 			continue
 		}
 		rest := float64(t.restRow(int(fd.x)))
-		fd.y = min(fd.y+SinkSpeed[fd.kind]*s, rest)
+		fd.y = min(fd.y+fd.kind.SinkSpeed()*s, rest)
 		fd.landed = fd.y == rest
 	}
 	t.food = slices.DeleteFunc(t.food, func(fd food) bool { return fd.rested >= FoodRestTime })
@@ -341,7 +341,7 @@ func (t *Tank) intercept(fd food, left bool) (x, y float64, ok bool) {
 			return x, y, ok
 		}
 		eta := max(math.Abs(x-f.x)/ChaseSpeed, math.Abs(y-f.y)/(ChaseSpeed*VerticalScale))
-		fy = min(fd.y+SinkSpeed[fd.kind]*eta, float64(t.restRow(int(fd.x))))
+		fy = min(fd.y+fd.kind.SinkSpeed()*eta, float64(t.restRow(int(fd.x))))
 	}
 	return x, y, ok
 }

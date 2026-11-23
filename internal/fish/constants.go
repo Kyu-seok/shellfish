@@ -1,9 +1,15 @@
 package fish
 
+import "time"
+
 // Tuning numbers for the Fish's state live here.
 
-// Full is the lowest Hunger: a Fish that has just eaten or just been born.
-const Full = 0.0
+// Day is how long a day is, for Age, Hunger and how long the user was away.
+const Day = 24 * time.Hour
+
+// MinHunger is the lowest Hunger: a Fish that has just been born or has
+// eaten its fill.
+const MinHunger = 0.0
 
 // MaxHunger is the highest Hunger a Fish can reach.
 const MaxHunger = 100.0
@@ -21,7 +27,7 @@ var Palette = []Colour{
 	"#D7BAFF", // lilac
 }
 
-// HungerPerDay is how much Hunger rises in 24 hours, open or closed.
+// HungerPerDay is how much Hunger rises in a Day, open or closed.
 const HungerPerDay = 100.0
 
 // HungryAt and StarvingAt are the lowest Hunger of the Hungry and Starving
@@ -31,13 +37,19 @@ const (
 	StarvingAt = 80.0
 )
 
-// FullMargin is how far above the lowest Hunger the Fish still counts as
-// Full. Hunger takes about a quarter of an hour to rise past it.
+// FullMargin is how far above MinHunger the Fish still counts as Full.
+// Hunger takes about a quarter of an hour to rise past it.
 const FullMargin = 1.0
 
-// FoodValue is how much eating each Food Kind lowers Hunger.
-var FoodValue = map[FoodKind]float64{
-	Pellet: 10,
-	Flake:  25,
-	Worm:   50,
+// foodKinds describes each Food Kind, in the order of the FoodKind
+// constants: adding a kind means adding a constant and a row here.
+var foodKinds = []struct {
+	name  string
+	glyph string  // how it is drawn
+	value float64 // how much eating it lowers Hunger
+	sink  float64 // how fast it sinks, in rows per second
+}{
+	Pellet: {name: "pellet", glyph: "•", value: 10, sink: 1.2},
+	Flake:  {name: "flake", glyph: "*", value: 25, sink: 0.8}, // flutters down
+	Worm:   {name: "worm", glyph: "ʃ", value: 50, sink: 1.6},
 }

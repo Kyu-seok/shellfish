@@ -25,7 +25,7 @@ How hungry the Fish is. It rises over real time, even while the app is closed, a
 _Avoid_: Fullness, satiety, food level
 
 **Full**:
-The Fish when its Hunger is at its lowest. A Full Fish ignores Food.
+The Fish when its Hunger is within a small margin (FullMargin) of its lowest. Hunger rises continuously, so without the margin the Fish would stop being Full the moment after it ate. A Full Fish ignores Food.
 _Avoid_: Satiated, overfed
 
 **Mood**:

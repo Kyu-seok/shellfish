@@ -29,7 +29,7 @@ func (f Fish) Mood() Mood {
 func (f Fish) CatchUp(now time.Time) Fish {
 	if elapsed := now.Sub(f.HungerUpdated); elapsed > 0 {
 		// Multiply before dividing so whole-hour amounts come out exact.
-		f.Hunger = min(f.Hunger+float64(elapsed)*HungerPerDay/float64(24*time.Hour), MaxHunger)
+		f.Hunger = min(f.Hunger+float64(elapsed)*HungerPerDay/float64(Day), MaxHunger)
 	}
 	f.HungerUpdated = now
 	return f

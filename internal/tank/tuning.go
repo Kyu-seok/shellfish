@@ -78,13 +78,6 @@ const (
 	FoodFadeTime = 5.0
 )
 
-// SinkSpeed is how fast each Food Kind sinks, in rows per second.
-var SinkSpeed = map[fish.FoodKind]float64{
-	fish.Pellet: 1.2,
-	fish.Flake:  0.8, // flutters down
-	fish.Worm:   1.6,
-}
-
 // The Fish going for Food.
 const (
 	// ChaseSpeed and ChaseAccel are the Fish's top speed and acceleration on
