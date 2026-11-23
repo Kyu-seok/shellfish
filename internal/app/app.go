@@ -51,7 +51,9 @@ type Model struct {
 	now           time.Time // the time of the latest tick
 	lastSaved     time.Time // when the Fish was last written to the data folder
 	lock          *store.Lock
-	refusal       string // why this launch was refused, if another Tank is open
+	refusal       string    // why this launch was refused, if another Tank is open
+	greeting      string    // the welcome-back greeting, if the user was away a while
+	greetUntil    time.Time // when the greeting goes away by itself
 }
 
 // New builds the app from its dependencies. It takes the data folder's lock,
@@ -77,6 +79,8 @@ func New(deps Deps) Model {
 	case err != nil:
 		m.err = err
 	default:
+		m.greeting = greeting(f, m.now)
+		m.greetUntil = m.now.Add(GreetingDuration)
 		m.fish = f.CatchUp(m.now)
 	}
 	return m
@@ -214,6 +218,7 @@ func (m Model) View() string {
 		}
 		rows[y] = fit(row, m.width)
 	}
+	m.drawGreeting(rows[:floorRow])
 	rows[floorRow] = strings.Repeat(sand, m.width)
 	rows[statusRow] = m.statusLine()
 	return strings.Join(rows, "\n")

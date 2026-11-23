@@ -19,3 +19,10 @@ const HungerMeterCells = 10
 
 // SaveInterval is how often the Fish is saved while the Tank is open.
 const SaveInterval = time.Minute
+
+// GreetAfter is how long the user must be away for the Tank to greet them
+// when they come back. An absence of exactly this long gets no greeting.
+const GreetAfter = time.Hour
+
+// GreetingDuration is how long the welcome-back greeting stays up.
+const GreetingDuration = 5 * time.Second
