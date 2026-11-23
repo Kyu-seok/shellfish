@@ -65,7 +65,9 @@ type fish struct {
 	mode       mode
 	timer      float64 // seconds left hovering or holding, or spent on this trip
 	tx, ty     float64 // wander target
+	top, accel float64 // top speed and acceleration for this trip
 	tail       float64 // tail swish phase
+	bob        float64 // bob phase, in radians
 }
 
 // New fills a width×height Tank, the floor being its last row, with seaweed
@@ -93,6 +95,7 @@ func (t *Tank) Step(dt time.Duration) {
 	s := dt.Seconds()
 	t.clock += s
 	f := &t.fish
+	f.bob += s * 2 * math.Pi / BobPeriod
 	switch f.mode {
 	case hovering:
 		f.vx = approach(f.vx, 0, Accel*s)
@@ -119,7 +122,7 @@ func (t *Tank) Step(dt time.Duration) {
 			ahead = -ahead
 		}
 		if ahead < ArriveDistance && math.Abs(f.ty-f.y) < ArriveDistance || f.timer > MaxTrip {
-			f.mode, f.timer = hovering, 0
+			f.mode, f.timer = hovering, between(t.rand, HoverMin, HoverMax)
 		}
 	}
 	t.move(s)
@@ -134,7 +137,7 @@ func (t *Tank) Snapshot() Snapshot {
 		Height: t.height,
 		Fish: Fish{
 			Col:        int(math.Round(f.x)),
-			Row:        int(math.Round(f.y)),
+			Row:        int(math.Round(f.y + BobAmplitude*math.Sin(f.bob))),
 			FacingLeft: f.facingLeft,
 			TailUp:     int(f.tail)%2 == 1,
 		},
@@ -149,36 +152,55 @@ func (t *Tank) Snapshot() Snapshot {
 	return snap
 }
 
-// startTrip picks somewhere to swim to.
+// startTrip picks somewhere to swim to: now and then a quick dart ahead,
+// otherwise a cruise to anywhere in the Tank.
 func (t *Tank) startTrip() {
 	f := &t.fish
+	if t.rand.Float64() < DartChance {
+		dir := 1.0
+		if f.facingLeft {
+			dir = -1
+		}
+		tx := f.x + dir*between(t.rand, DartMin, DartMax)
+		ty := f.y + between(t.rand, -DartRise, DartRise)
+		if t.pathClear(f.x, f.y, tx, ty) {
+			t.setOff(tx, ty, DartSpeed, DartAccel)
+			return
+		}
+	}
 	for range TargetTries {
 		tx := t.rand.Float64() * float64(t.width-FishWidth)
 		ty := t.rand.Float64() * float64(t.waterRows()-FishHeight)
 		if t.pathClear(f.x, f.y, tx, ty) {
-			f.tx, f.ty = tx, ty
-			f.mode, f.timer = swimming, 0
-			if behind := (tx < f.x) != f.facingLeft; behind && math.Abs(tx-f.x) >= ArriveDistance {
-				f.mode, f.timer = turning, TurnHold
-			}
+			t.setOff(tx, ty, CruiseSpeed, Accel)
 			return
 		}
 	}
 	f.timer = 1
 }
 
+// setOff starts a trip to tx, ty, turning around first if it is behind.
+func (t *Tank) setOff(tx, ty, top, accel float64) {
+	f := &t.fish
+	f.tx, f.ty, f.top, f.accel = tx, ty, top, accel
+	f.mode, f.timer = swimming, 0
+	if behind := (tx < f.x) != f.facingLeft; behind && math.Abs(tx-f.x) >= ArriveDistance {
+		f.mode, f.timer = turning, TurnHold
+	}
+}
+
 // steer accelerates the Fish towards its target: it eases in, coasts at its
 // top speed and eases out as it arrives. It only ever swims forwards.
 func (t *Tank) steer(s float64) {
 	f := &t.fish
-	want := arriveSpeed(f.tx-f.x, CruiseSpeed, Accel)
+	want := arriveSpeed(f.tx-f.x, f.top, f.accel)
 	if f.facingLeft {
 		want = min(want, 0)
 	} else {
 		want = max(want, 0)
 	}
-	f.vx = approach(f.vx, want, Accel*s)
-	f.vy = approach(f.vy, arriveSpeed(f.ty-f.y, CruiseSpeed*VerticalScale, Accel*VerticalScale), Accel*VerticalScale*s)
+	f.vx = approach(f.vx, want, f.accel*s)
+	f.vy = approach(f.vy, arriveSpeed(f.ty-f.y, f.top*VerticalScale, f.accel*VerticalScale), f.accel*VerticalScale*s)
 }
 
 // arriveSpeed is the velocity that covers d and stops there without braking
@@ -214,9 +236,15 @@ func (t *Tank) move(s float64) {
 // waterRows is how many rows of water there are above the floor.
 func (t *Tank) waterRows() int { return t.height - 1 }
 
-// fits reports whether the Fish's box at x, y is inside the water and clear
-// of the seaweed.
+// fits reports whether the Fish at x, y stays inside the water and clear of
+// the seaweed wherever its bob takes it.
 func (t *Tank) fits(x, y float64) bool {
+	return t.boxFits(x, y-BobAmplitude) && t.boxFits(x, y+BobAmplitude)
+}
+
+// boxFits reports whether the Fish's box at x, y is inside the water and
+// clear of the seaweed.
+func (t *Tank) boxFits(x, y float64) bool {
 	col, top := int(math.Round(x)), int(math.Round(y))
 	bottom := top + FishHeight - 1
 	if col < 0 || col+FishWidth > t.width || top < 0 || bottom >= t.waterRows() {
@@ -249,9 +277,9 @@ func (t *Tank) pathClear(x0, y0, x1, y1 float64) bool {
 func (t *Tank) keepFishInside() {
 	f := &t.fish
 	f.x = clamp(f.x, 0, float64(t.width-FishWidth))
-	f.y = clamp(f.y, 0, float64(t.waterRows()-FishHeight))
-	for !t.fits(f.x, f.y) && f.y > 0 {
-		f.y = max(math.Round(f.y)-1, 0)
+	f.y = clamp(f.y, BobAmplitude, float64(t.waterRows()-FishHeight)-BobAmplitude)
+	for !t.fits(f.x, f.y) && f.y > BobAmplitude {
+		f.y = max(f.y-1, BobAmplitude)
 	}
 	f.vx, f.vy = 0, 0
 }
@@ -280,3 +308,6 @@ func (t *Tank) growSeaweed() {
 }
 
 func clamp(v, lo, hi float64) float64 { return max(lo, min(v, hi)) }
+
+// between is a random number from lo up to hi.
+func between(r *rand.Rand, lo, hi float64) float64 { return lo + r.Float64()*(hi-lo) }

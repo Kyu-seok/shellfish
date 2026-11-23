@@ -17,10 +17,28 @@ const (
 	Accel = 10.0
 	// VerticalScale scales speeds and accelerations for up-and-down movement.
 	VerticalScale = 0.4
+	// DartChance is the chance that a trip is a quick dart ahead, of DartMin
+	// to DartMax columns, rising or sinking by up to DartRise rows, at up to
+	// DartSpeed. DartSpeed must stay at or below 20 so the Fish never skips
+	// a cell between frames.
+	DartChance = 0.2
+	DartMin    = 10.0
+	DartMax    = 18.0
+	DartRise   = 1.5
+	DartSpeed  = 18.0
+	DartAccel  = 60.0
 	// TurnHold is how long the Fish holds still before it turns around.
 	TurnHold = 0.35
 	// ArriveDistance is how close to a wander target counts as arrived.
 	ArriveDistance = 0.3
+	// HoverMin and HoverMax bound how long the Fish pauses between trips.
+	HoverMin = 2.5
+	HoverMax = 5.0
+	// BobAmplitude and BobPeriod shape the gentle up-and-down bob. An
+	// amplitude above half a cell makes the bob show wherever the Fish is, and
+	// a pause outlasts a whole bob even after the Fish brakes.
+	BobAmplitude = 0.6
+	BobPeriod    = 1.6
 	// MaxTrip gives up on a trip that takes longer than this.
 	MaxTrip = 15.0
 	// TargetTries is how many random wander targets to try before giving up
