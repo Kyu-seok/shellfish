@@ -27,6 +27,7 @@ func (c *fakeClock) Tick(time.Duration) tea.Cmd { return nil }
 type harness struct {
 	t       *testing.T
 	clock   *fakeClock
+	seed    uint64
 	dataDir string
 	model   tea.Model
 	last    tea.Cmd
@@ -40,9 +41,12 @@ func withDataDir(dir string) option { return func(h *harness) { h.dataDir = dir 
 // at launches with the fake clock at t.
 func at(t time.Time) option { return func(h *harness) { h.clock.now = t } }
 
+// withSeed seeds the random source, so a test can try several Tanks.
+func withSeed(seed uint64) option { return func(h *harness) { h.seed = seed } }
+
 func newHarness(t *testing.T, opts ...option) *harness {
 	t.Helper()
-	h := &harness{t: t, clock: &fakeClock{now: start}}
+	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1}
 	for _, o := range opts {
 		o(h)
 	}
@@ -51,7 +55,7 @@ func newHarness(t *testing.T, opts ...option) *harness {
 	}
 	m := app.New(app.Deps{
 		Clock:   h.clock,
-		Rand:    rand.New(rand.NewPCG(1, 2)),
+		Rand:    rand.New(rand.NewPCG(h.seed, 2)),
 		DataDir: h.dataDir,
 	})
 	h.model, h.last = m, m.Init()
@@ -117,4 +121,107 @@ func (h *harness) quitRequested() bool {
 	}
 	_, ok := h.last().(tea.QuitMsg)
 	return ok
+}
+
+// sighting is where the Fish was seen in one rendered frame.
+type sighting struct {
+	left, top  int  // top-left cell of the Fish's 10×3 box
+	facingLeft bool // the drawing is mirrored
+	tail       string
+	intact     bool // all three rows of the drawing are whole and in place
+}
+
+// Fish drawings, row by row, without the tail. Spaces are see-through.
+var (
+	rightFacing = [3]string{"   .-~~-. ", "  (  ◕ ᴗ )", "   `-..-' "}
+	leftFacing  = [3]string{" .-~~-.   ", "( ᴗ ◕  )  ", " `-..-'   "}
+)
+
+// floorRow is the index of the sandy floor: the last row that is all sand.
+func floorRow(rows []string) int {
+	for y := len(rows) - 1; y >= 0; y-- {
+		if r := strings.TrimRight(rows[y], " "); r != "" && strings.Trim(r, "░") == "" {
+			return y
+		}
+	}
+	return -1
+}
+
+// findFish looks for the Fish's eye and reads the drawing around it.
+func findFish(rows []string) (sighting, bool) {
+	for y, row := range rows {
+		cells := []rune(row)
+		for x, c := range cells {
+			if c != '◕' {
+				continue
+			}
+			s := sighting{top: y - 1}
+			var want [3]string
+			if x >= 2 && cells[x-1] == ' ' && cells[x-2] == ' ' && x >= 3 && cells[x-3] == '(' {
+				s.left, want = x-5, rightFacing
+			} else {
+				s.facingLeft, s.left, want = true, x-4, leftFacing
+			}
+			s.intact = s.left >= 0 && s.top >= 0 && y+1 < len(rows)
+			if s.intact {
+				for i := range 3 {
+					line := []rune(rows[s.top+i])
+					for j, w := range []rune(want[i]) {
+						if w == ' ' {
+							continue
+						}
+						if s.left+j >= len(line) || line[s.left+j] != w {
+							s.intact = false
+						}
+					}
+				}
+			}
+			tailAt := s.left
+			if s.facingLeft {
+				tailAt = s.left + 8
+			}
+			if tailAt >= 0 && tailAt+2 <= len(cells) {
+				s.tail = string(cells[tailAt : tailAt+2])
+			}
+			return s, true
+		}
+	}
+	return sighting{}, false
+}
+
+// seaweedCells counts the seaweed drawn in a frame.
+func seaweedCells(rows []string) int {
+	n := 0
+	for _, row := range rows {
+		n += strings.Count(row, "{") + strings.Count(row, "}")
+	}
+	return n
+}
+
+// watch advances d, one frame at a time, and returns where the Fish was seen
+// in every frame. It fails the test if the Fish is ever missing, broken,
+// outside the Tank, on or below the floor, or hiding any seaweed.
+func (h *harness) watch(d time.Duration) []sighting {
+	h.t.Helper()
+	var seen []sighting
+	weed := seaweedCells(h.view())
+	for range int(d / app.FrameInterval) {
+		h.advance(app.FrameInterval)
+		rows := h.view()
+		s, ok := findFish(rows)
+		switch {
+		case !ok:
+			h.t.Fatalf("frame %d: no Fish in the Tank:\n%s", len(seen), strings.Join(rows, "\n"))
+		case !s.intact:
+			h.t.Fatalf("frame %d: the Fish is cut off or overlapped:\n%s", len(seen), strings.Join(rows, "\n"))
+		case s.top+3 > floorRow(rows):
+			h.t.Fatalf("frame %d: the Fish reaches the floor:\n%s", len(seen), strings.Join(rows, "\n"))
+		case seaweedCells(rows) != weed:
+			h.t.Fatalf("frame %d: the Fish covers seaweed:\n%s", len(seen), strings.Join(rows, "\n"))
+		case s.tail != "><" && s.tail != ">-" && s.tail != "-<":
+			h.t.Fatalf("frame %d: the Fish's tail is %q:\n%s", len(seen), s.tail, strings.Join(rows, "\n"))
+		}
+		seen = append(seen, s)
+	}
+	return seen
 }
