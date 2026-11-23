@@ -49,6 +49,14 @@ type Look struct {
 	Monochrome bool
 }
 
+// colour is hex, or the default colour if Monochrome.
+func (l Look) colour(hex string) string {
+	if l.Monochrome {
+		return ""
+	}
+	return hex
+}
+
 // fishSprite is the puffball facing right, wearing face, with tail as its
 // first two characters. Spaces around the drawing are see-through. It fits in
 // tank.FishWidth cells.
@@ -72,6 +80,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 	}
 	g := newGrid(s.Width, s.Height)
 	floor := s.Height - 1
+	drawSurface(g, s, look)
 	for x := range s.Width {
 		g.set(x, floor, sand, plainInk)
 	}
@@ -167,6 +176,7 @@ type grid [][]cell
 type cell struct {
 	c  rune // 0 for the second half of a two-cell character
 	in ink
+	fg string // a plain cell's colour as "#rrggbb", or "" for the default
 }
 
 // ink is how a cell is styled.
@@ -205,6 +215,14 @@ func (g grid) set(x, y int, c rune, in ink) {
 	}
 }
 
+// paint draws c at x, y in the colour fg, as set does.
+func (g grid) paint(x, y int, c rune, fg string) {
+	g.set(x, y, c, plainInk)
+	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) && g[y][x].c == c {
+		g[y][x].fg = fg
+	}
+}
+
 // rows renders the grid, styling each run of Fish cells with fishStyle.
 func (g grid) rows(fishStyle lipgloss.Style) []string {
 	styles := map[ink]lipgloss.Style{fishInk: fishStyle, faintInk: faintStyle}
@@ -214,12 +232,14 @@ func (g grid) rows(fishStyle lipgloss.Style) []string {
 		for x := 0; x < len(row); {
 			var run strings.Builder
 			end := x
-			for ; end < len(row) && row[end].in == row[x].in; end++ {
+			for ; end < len(row) && row[end].in == row[x].in && row[end].fg == row[x].fg; end++ {
 				if row[end].c != 0 {
 					run.WriteRune(row[end].c)
 				}
 			}
-			if style, ok := styles[row[x].in]; ok {
+			if row[x].fg != "" {
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(row[x].fg)).Render(run.String()))
+			} else if style, ok := styles[row[x].in]; ok {
 				b.WriteString(style.Render(run.String()))
 			} else {
 				b.WriteString(run.String())

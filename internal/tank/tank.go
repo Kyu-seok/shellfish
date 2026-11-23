@@ -22,6 +22,8 @@ type Snapshot struct {
 	Bubbles       []Bubble
 	// Flourishes are the hearts and notes floating up from the Fish.
 	Flourishes []Flourish
+	// Clock is how many seconds the Tank has run, for Scenery that drifts.
+	Clock float64
 }
 
 // Fish is where the Fish is drawn.
@@ -152,13 +154,13 @@ func (t *Tank) Drop(k fish.FoodKind, col, row int) bool {
 		return false
 	}
 	rest := t.restRow(col)
-	y := float64(min(row, rest))
+	y := float64(min(max(row, SurfaceRows), rest))
 	t.food = append(t.food, food{x: float64(col), y: y, kind: k, landed: row >= rest})
 	return true
 }
 
-// DropNearTop drops Food of kind k at a random column on the top row of the
-// Tank, as Drop does.
+// DropNearTop drops Food of kind k at a random column on the top row of
+// water, just below the surface, as Drop does.
 func (t *Tank) DropNearTop(k fish.FoodKind) bool {
 	if t.width <= 0 {
 		return false
@@ -175,7 +177,7 @@ func (t *Tank) restRow(col int) int {
 			row = t.waterRows() - 1 - st.height
 		}
 	}
-	return max(row, 0)
+	return max(row, SurfaceRows)
 }
 
 // Step advances the simulation by dt for a Fish in mood, which sets how
@@ -353,10 +355,10 @@ func (t *Tank) mouthOn(col, row float64, left bool) (x, y float64, ok bool) {
 	// a wall or a stalk.
 	for _, dx := range []float64{0, -1, 1} {
 		x := clamp(col-mouthCol(left)+dx, 0, float64(t.width-FishWidth))
-		y := clamp(row-1, BobAmplitude, float64(t.waterRows()-FishHeight)-BobAmplitude)
+		y := clamp(row-1, highestFish, float64(t.waterRows()-FishHeight)-BobAmplitude)
 		// Rise until clear of the seaweed.
-		for !t.fits(x, y) && y > BobAmplitude {
-			y = max(y-RiseStep, BobAmplitude)
+		for !t.fits(x, y) && y > highestFish {
+			y = max(y-RiseStep, highestFish)
 		}
 		if t.fits(x, y) && reaches(x, y, left, col, row) {
 			return x, y, true
@@ -399,7 +401,7 @@ func (t *Tank) aboveSeaweed() float64 {
 	for _, st := range t.seaweed {
 		tallest = max(tallest, st.height)
 	}
-	return max(float64(t.waterRows()-tallest-FishHeight)-BobAmplitude, BobAmplitude)
+	return max(float64(t.waterRows()-tallest-FishHeight)-BobAmplitude, highestFish)
 }
 
 // Snapshot returns what the Tank looks like now.
@@ -408,6 +410,7 @@ func (t *Tank) Snapshot() Snapshot {
 	snap := Snapshot{
 		Width:  t.width,
 		Height: t.height,
+		Clock:  t.clock,
 		Fish: Fish{
 			Col:        int(math.Round(f.x)),
 			Row:        int(t.fishRow()),
@@ -573,7 +576,7 @@ func (t *Tank) fits(x, y float64) bool {
 func (t *Tank) boxFits(x, y float64) bool {
 	col, top := int(math.Round(x)), int(math.Round(y))
 	bottom := top + FishHeight - 1
-	if col < 0 || col+FishWidth > t.width || top < 0 || bottom >= t.waterRows() {
+	if col < 0 || col+FishWidth > t.width || top < SurfaceRows || bottom >= t.waterRows() {
 		return false
 	}
 	for _, st := range t.seaweed {
@@ -603,9 +606,9 @@ func (t *Tank) pathClear(x0, y0, x1, y1 float64) bool {
 func (t *Tank) keepFishInside() {
 	f := &t.fish
 	f.x = clamp(f.x, 0, float64(t.width-FishWidth))
-	f.y = clamp(f.y, BobAmplitude, float64(t.waterRows()-FishHeight)-BobAmplitude)
-	for !t.fits(f.x, f.y) && f.y > BobAmplitude {
-		f.y = max(f.y-1, BobAmplitude)
+	f.y = clamp(f.y, highestFish, float64(t.waterRows()-FishHeight)-BobAmplitude)
+	for !t.fits(f.x, f.y) && f.y > highestFish {
+		f.y = max(f.y-1, highestFish)
 	}
 	f.vx, f.vy = 0, 0
 }
@@ -661,3 +664,7 @@ func clamp(v, lo, hi float64) float64 { return max(lo, min(v, hi)) }
 
 // between is a random number from lo up to hi.
 func between(r *rand.Rand, lo, hi float64) float64 { return lo + r.Float64()*(hi-lo) }
+
+// highestFish is the highest the top of the Fish's box goes, so that its bob
+// never takes it into the surface.
+const highestFish = SurfaceRows + BobAmplitude

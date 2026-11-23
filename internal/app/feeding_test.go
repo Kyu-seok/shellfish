@@ -33,8 +33,8 @@ func TestFOrSpaceDropsFoodAtTheTopOfTheTank(t *testing.T) {
 		h.resize(80, 24)
 
 		h.press(key)
-		if got := strings.Count(h.view()[0], pellet); got != 1 {
-			t.Errorf("after pressing %q the top row holds %d pellets, want 1:\n%s", key, got, h.screen())
+		if got := strings.Count(h.view()[waterTop], pellet); got != 1 {
+			t.Errorf("after pressing %q the top row of water holds %d pellets, want 1:\n%s", key, got, h.screen())
 		}
 		if got := h.count(pellet); got != 1 {
 			t.Errorf("after pressing %q the Tank holds %d pellets, want 1:\n%s", key, got, h.screen())
@@ -49,7 +49,7 @@ func TestFDropsFoodInDifferentPlaces(t *testing.T) {
 	columns := map[int]bool{}
 	for range 6 {
 		h.press("f")
-		columns[strings.Index(h.view()[0], pellet)] = true
+		columns[strings.Index(h.view()[waterTop], pellet)] = true
 		h.advance(time.Second) // let it sink out of the way
 	}
 	if len(columns) < 3 {
@@ -320,8 +320,9 @@ func TestTheGreetingDoesNotBlockFeeding(t *testing.T) {
 	if got := h.cellAt(2, 9); got != pellet {
 		t.Errorf("a click while greeting dropped %q at (2, 9), want a pellet:\n%s", got, h.screen())
 	}
-	if got := strings.Count(h.view()[0], pellet); got != 1 {
-		t.Errorf("f while greeting put %d pellets on the top row, want 1:\n%s", got, h.screen())
+	h.advance(time.Second) // the greeting covers the top row of water: let it sink into sight
+	if got := h.count(pellet); got != 2 {
+		t.Errorf("after a click and f while greeting the Tank holds %d pellets, want 2:\n%s", got, h.screen())
 	}
 	if !strings.Contains(h.screen(), "missed you") {
 		t.Errorf("feeding dismissed the greeting:\n%s", h.screen())

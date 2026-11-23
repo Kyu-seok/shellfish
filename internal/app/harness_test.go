@@ -260,6 +260,9 @@ func findFish(rows []string) (sighting, bool) {
 	return sighting{}, false
 }
 
+// waterTop is the top row of water, just below the surface.
+const waterTop = 1
+
 // floorRow is the index of the sandy floor: the last row that is all sand.
 func floorRow(rows []string) int {
 	for y := len(rows) - 1; y >= 0; y-- {

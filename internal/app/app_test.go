@@ -12,7 +12,7 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	h.resize(30, 10)
 
 	want := []string{
-		"",
+		"", // the surface
 		"",
 		"             .-~~-.",
 		"          ><(  ◕ ᴗ )",
@@ -27,7 +27,10 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("Tank has %d rows, want %d:\n%s", len(got), len(want), strings.Join(got, "\n"))
 	}
-	for i := range want {
+	if !isWave(got[0]) {
+		t.Errorf("row 0 = %q, want the surface's wave line", got[0])
+	}
+	for i := 1; i < len(want); i++ {
 		if strings.TrimRight(got[i], " ") != want[i] {
 			t.Errorf("row %d = %q, want %q", i, got[i], want[i])
 		}
