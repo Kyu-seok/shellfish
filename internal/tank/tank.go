@@ -117,7 +117,7 @@ type swimmer struct {
 func New(r *rand.Rand, width, height int) *Tank {
 	t := &Tank{rand: r}
 	t.Resize(width, height)
-	t.fish.x = float64((t.width - FishWidth + 1) / 2) // centres a 10-cell drawing
+	t.fish.x = float64((t.width - FishWidth + 1) / 2) // centres the 11-cell drawing
 	t.fish.y = float64((t.waterRows() - FishHeight) / 2)
 	t.keepFishInside()
 	// Decorations draw from their own source, seeded last so the seaweed is
@@ -356,7 +356,7 @@ func (t *Tank) mouthOn(col, row float64, left bool) (x, y float64, ok bool) {
 		y := clamp(row-1, BobAmplitude, float64(t.waterRows()-FishHeight)-BobAmplitude)
 		// Rise until clear of the seaweed.
 		for !t.fits(x, y) && y > BobAmplitude {
-			y = max(y-0.25, BobAmplitude)
+			y = max(y-RiseStep, BobAmplitude)
 		}
 		if t.fits(x, y) && reaches(x, y, left, col, row) {
 			return x, y, true
