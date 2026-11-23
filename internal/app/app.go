@@ -16,7 +16,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/Kyu-seok/shellfish/internal/fish"
+	"github.com/Kyu-seok/shellfish/internal/render"
 	"github.com/Kyu-seok/shellfish/internal/store"
+	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
 // Clock supplies the current time and the animation tick source.
@@ -43,6 +45,7 @@ type Deps struct {
 type Model struct {
 	deps          Deps
 	width, height int
+	tank          *tank.Tank // nil until the window size is known
 	naming        bool
 	name          []rune // the name typed so far on the naming prompt
 	nameErr       error  // why the last name was rejected
@@ -134,8 +137,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		w, h := tankArea(msg.Width, msg.Height)
+		if m.tank == nil {
+			m.tank = tank.New(m.deps.Rand, w, h)
+		} else {
+			m.tank.Resize(w, h)
+		}
 	case TickMsg:
 		m.now = msg.Time
+		if m.tank != nil {
+			m.tank.Step(FrameInterval)
+		}
 		if m.hasFish() {
 			m.fish = m.fish.CatchUp(m.now)
 			// A clock that moved backwards saves now instead of waiting to catch up.
@@ -159,13 +171,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// fishSprite is the puffball facing right, wearing face.
-func fishSprite(face string) []string {
-	return []string{
-		"   .-~~-.",
-		"><(  " + face + " )",
-		"   `-..-'",
-	}
+// statusRows is how many rows below the Tank the status line takes.
+const statusRows = 1
+
+// tankArea is the part of a width×height window that the Tank fills. The
+// Tank is sized only through here, so rows the window keeps for anything else
+// are subtracted in this one place.
+func tankArea(width, height int) (w, h int) {
+	return width, max(height-statusRows, 0)
 }
 
 // faces is the Fish's face for each Mood.
@@ -175,9 +188,7 @@ var faces = map[fish.Mood]string{
 	fish.Starving: "; ﹏",
 }
 
-const sand = "░"
-
-// View draws the Tank to fill the window, with the Fish in the middle above a sandy floor.
+// View draws the Tank to fill the window, with the status line below it.
 func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
@@ -195,32 +206,15 @@ func (m Model) View() string {
 		msg := ansi.Wordwrap("Make me a bigger tank 🐟", m.width, "")
 		return m.messageView(strings.Split(msg, "\n")...)
 	}
-	rows := make([]string, m.height)
-	statusRow := m.height - 1
-	floorRow := statusRow - 1
-
-	sprite := fishSprite(faces[m.fish.Mood()])
-	spriteW := 0
-	for _, line := range sprite {
-		spriteW = max(spriteW, ansi.StringWidth(line))
-	}
-	body := lipgloss.NewStyle()
+	look := render.Look{Face: faces[m.fish.Mood()]}
 	if !m.deps.Monochrome {
-		body = body.Foreground(lipgloss.Color(m.fish.Colour))
+		look.Colour = string(m.fish.Colour)
 	}
-	top := (floorRow - len(sprite)) / 2
-	left := max((m.width-spriteW)/2, 0)
-
-	for y := 0; y < floorRow; y++ {
-		row := ""
-		if i := y - top; i >= 0 && i < len(sprite) {
-			row = strings.Repeat(" ", left) + body.Render(sprite[i])
-		}
-		rows[y] = fit(row, m.width)
+	water := render.Tank(m.tank.Snapshot(), look)
+	if len(water) > 0 {
+		m.drawGreeting(water[:len(water)-1]) // over the water, not the sand
 	}
-	m.drawGreeting(rows[:floorRow])
-	rows[floorRow] = strings.Repeat(sand, m.width)
-	rows[statusRow] = m.statusLine()
+	rows := append(water, m.statusLine())
 	return strings.Join(rows, "\n")
 }
 

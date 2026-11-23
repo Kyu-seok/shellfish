@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestTankShowsFishAboveSandyFloorAndStatusLine(t *testing.T) {
+func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
 	h.resize(30, 10)
 
@@ -18,8 +18,8 @@ func TestTankShowsFishAboveSandyFloorAndStatusLine(t *testing.T) {
 		"          ><(  ◕ ᴗ )",
 		"             `-..-'",
 		"",
-		"",
-		"",
+		"                 {",
+		"                  }",
 		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
 		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
 	}
