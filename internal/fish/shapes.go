@@ -1,5 +1,7 @@
 package fish
 
+import "math"
+
 // Shapes are what a Species is drawn from. Coordinates are x in cells and y
 // in half-rows, so one unit is about as wide as it is tall and circles come
 // out round.
@@ -80,3 +82,16 @@ func Fill(colour string, s Shape) Layer { return Layer{Colour: colour, Shape: s}
 
 // TailFill is a layer of the tail.
 func TailFill(colour string, s Shape) Layer { return Layer{Colour: colour, Shape: s, Tail: true} }
+
+// Spikes are n little triangles, each l long, standing out of the ellipse
+// centred on cx, cy with radii rx and ry.
+func Spikes(cx, cy, rx, ry float64, n int, l float64) Shape {
+	var ss []Shape
+	for i := range n {
+		a := 2 * math.Pi * (float64(i) + 0.5) / float64(n)
+		px, py := cx+rx*math.Cos(a), cy+ry*math.Sin(a)
+		tx, ty := -math.Sin(a)*0.45, math.Cos(a)*0.45
+		ss = append(ss, Polygon(px-tx, py-ty, px+math.Cos(a)*l, py+math.Sin(a)*l, px+tx, py+ty))
+	}
+	return Either(ss...)
+}

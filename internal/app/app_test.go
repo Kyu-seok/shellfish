@@ -24,7 +24,7 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"",
 		"",
 		"",
-		"                                      )",
+		"                                     )",
 		"                 @              Ѡ    (", // shells on the sand
 		"", // the sand
 		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · • pellet",

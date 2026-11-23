@@ -49,9 +49,10 @@ const (
 
 	// SeaweedGap is the fewest empty columns of floor between two stalks, or
 	// between a stalk and a wall, unless the stalk stands against the wall. It
-	// leaves the Fish room to reach Food resting anywhere on the floor: about
-	// twice the width of its box, less the bit in front of its mouth.
-	SeaweedGap = 30
+	// leaves every Species room to reach Food resting anywhere on the floor:
+	// twice the columns behind its mouth, less two, for the 19-wide koi, whose
+	// mouth is furthest from the back of its box.
+	SeaweedGap = 34
 	// SeaweedMinHeight and SeaweedMaxHeight bound a stalk's height in rows.
 	SeaweedMinHeight = 2
 	SeaweedMaxHeight = 5

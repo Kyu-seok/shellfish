@@ -49,26 +49,36 @@ func TestThePickerBrowsesTheSpeciesWithTheArrowKeys(t *testing.T) {
 	h := newHarness(t)
 	h.resize(60, 16)
 
-	for i, step := range []struct{ key, want string }{
-		{"right", "Goldfish"},
-		{"right", "Clownfish"}, // round to the first again
-		{"left", "Goldfish"},   // and back round to the last
-	} {
-		h.press(step.key)
+	// → steps through all ten Species in order, round to the first again,
+	// and ← goes back round to the last.
+	names := []string{"Clownfish", "Goldfish", "Pufferfish", "Blue tang", "Betta",
+		"Angelfish", "Koi", "Guppy", "Neon tetra", "Anglerfish"}
+	type step struct {
+		key  string
+		want int // index into names
+	}
+	var steps []step
+	for i := 1; i <= len(names); i++ {
+		steps = append(steps, step{"right", i % len(names)})
+	}
+	steps = append(steps, step{"left", len(names) - 1})
+	for i, st := range steps {
+		h.press(st.key)
 		h.advance(app.FrameInterval)
-		if !strings.Contains(h.screen(), step.want) {
-			t.Fatalf("step %d: after %s the picker doesn't show %s:\n%s", i, step.key, step.want, h.screen())
+		want := names[st.want]
+		if !strings.Contains(h.screen(), "‹ "+want+" ›") {
+			t.Fatalf("step %d: after %s the picker doesn't show %s:\n%s", i, st.key, want, h.screen())
 		}
-		sp := fish.Clownfish
-		if step.want == "Goldfish" {
-			sp = fish.Goldfish
-		}
+		sp := fish.AllSpecies[st.want]
 		if s, ok := findSpecies(h.rawView(), sp); !ok || !s.intact {
-			t.Errorf("step %d: no whole %s in the Tank:\n%s", i, step.want, h.screen())
+			t.Errorf("step %d: no whole %s in the Tank:\n%s", i, want, h.screen())
 		}
 		if gold := hasColour(h.fishColours(), goldfishBody); gold != (sp == fish.Goldfish) {
-			t.Errorf("step %d: showing %s, the Fish is drawn in %v", i, step.want, h.fishColours())
+			t.Errorf("step %d: showing %s, the Fish is drawn in %v", i, want, h.fishColours())
 		}
+	}
+	if len(fish.AllSpecies) != len(names) {
+		t.Errorf("the picker offers %d Species, want %d", len(fish.AllSpecies), len(names))
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -40,6 +41,7 @@ type harness struct {
 	seed    uint64
 	dataDir string
 	mono    bool
+	species fish.Species // the Species named chooses, and the harness looks for
 	model   tea.Model
 	last    tea.Cmd
 
@@ -51,16 +53,22 @@ type option func(*harness)
 // withDataDir launches on an existing data folder, as a later launch would.
 func withDataDir(dir string) option { return func(h *harness) { h.dataDir = dir } }
 
-// named launches, chooses the picker's first Species (a clownfish) and names
-// the Fish, so the Tank is open when the test starts.
+// named launches, chooses the Fish's Species (a clownfish, unless as says
+// otherwise) and names the Fish, so the Tank is open when the test starts.
 func named(name string) option {
 	return func(h *harness) {
 		h.afterLaunch = append(h.afterLaunch, func() {
+			for range slices.Index(fish.AllSpecies, h.species) {
+				h.press("right")
+			}
 			h.press("enter")
 			h.nameFish(name)
 		})
 	}
 }
+
+// as makes the Fish a sp: named picks it, and the harness looks for one.
+func as(sp fish.Species) option { return func(h *harness) { h.species = sp } }
 
 // monochrome launches as on a terminal with NO_COLOR set or too few colours.
 func monochrome() option { return func(h *harness) { h.mono = true } }
@@ -74,7 +82,7 @@ func withSeed(seed uint64) option { return func(h *harness) { h.seed = seed } }
 func newHarness(t *testing.T, opts ...option) *harness {
 	t.Helper()
 	lipgloss.SetColorProfile(termenv.TrueColor)
-	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1}
+	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1, species: fish.Clownfish}
 	for _, o := range opts {
 		o(h)
 	}
@@ -316,6 +324,12 @@ func isDark(colour string) bool {
 	return ok && max(r, g, b) < 0x40
 }
 
+// find is findSpecies for the harness's Fish's Species.
+func (h *harness) find(raw []string) (sighting, bool) { return findSpecies(raw, h.species) }
+
+// body is the box and mouth of the harness's Fish's Species.
+func (h *harness) body() tank.Body { return tank.BodyOf(h.species) }
+
 // findFish finds the Fish in a frame's coloured rows and reads how it looks:
 // which way its eye faces, what its eye shows and whether its mouth is open.
 // The Fish is a clownfish.
@@ -464,7 +478,7 @@ func sextantMask(c string) int {
 // Fish. If the Fish is blinking, it waits for the blink to end.
 func (h *harness) fishMood() string {
 	for range 10 {
-		s, ok := findFish(h.rawView())
+		s, ok := h.find(h.rawView())
 		if !ok || !s.intact {
 			return ""
 		}
@@ -530,13 +544,13 @@ func (h *harness) watch(d time.Duration) []sighting {
 		h.advance(app.FrameInterval)
 		raw := h.rawView()
 		rows := plain(raw)
-		s, ok := findFish(raw)
+		s, ok := h.find(raw)
 		switch {
 		case !ok:
 			h.t.Fatalf("frame %d: no Fish in the Tank:\n%s", len(seen), strings.Join(rows, "\n"))
 		case !s.intact:
 			h.t.Fatalf("frame %d: the Fish is cut off or overlapped (%+v):\n%s", len(seen), s, strings.Join(rows, "\n"))
-		case s.top+body.Height > floorRow(rows):
+		case s.top+h.body().Height > floorRow(rows):
 			h.t.Fatalf("frame %d: the Fish reaches the floor:\n%s", len(seen), strings.Join(rows, "\n"))
 		case seaweedCells(rows) != weed:
 			h.t.Fatalf("frame %d: the Fish covers seaweed:\n%s", len(seen), strings.Join(rows, "\n"))
@@ -667,7 +681,7 @@ func (h *harness) screen() string { return strings.Join(h.view(), "\n") }
 func (h *harness) reopen(d time.Duration) *harness {
 	h.t.Helper()
 	h.press("q")
-	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)), withSeed(h.seed))
+	return newHarness(h.t, withDataDir(h.dataDir), at(h.clock.now.Add(d)), withSeed(h.seed), as(h.species))
 }
 
 // count is how many times glyph is drawn in the Tank's water, above the sand.
