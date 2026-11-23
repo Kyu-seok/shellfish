@@ -1,0 +1,37 @@
+# Shellfish
+
+A virtual pet fish that lives in the terminal. You keep it fed, and it carries on living while the app is closed.
+
+## Language
+
+**Fish**:
+The one pet a user owns. It has a name, is never deleted, and cannot die.
+_Avoid_: Pet, tamagotchi, creature
+
+**Tank**:
+The space the Fish lives in and the user looks into. Food is dropped into it.
+_Avoid_: Aquarium, bowl, screen
+
+**Food**:
+Something dropped into the Tank for the Fish to swim to and eat.
+_Avoid_: Treat, snack
+
+**Food Kind**:
+One type of Food, such as a pellet, flake or worm. Each kind lowers Hunger by a different amount when eaten.
+_Avoid_: Food type, flavor, item
+
+**Hunger**:
+How hungry the Fish is. It rises over real time, even while the app is closed, and eating Food lowers it.
+_Avoid_: Fullness, satiety, food level
+
+**Full**:
+The Fish when its Hunger is at its lowest. A Full Fish ignores Food.
+_Avoid_: Satiated, overfed
+
+**Mood**:
+How the Fish feels, which depends entirely on its Hunger: Content, Hungry or Starving. It decides how the Fish looks and behaves.
+_Avoid_: Emotion, state, health
+
+**Age**:
+How many days have passed since the Fish was named.
+_Avoid_: Level, lifetime
