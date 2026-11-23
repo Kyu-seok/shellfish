@@ -101,6 +101,9 @@ func Tank(s tank.Snapshot, look Look) []string {
 			in = faintInk
 		}
 		g.set(fd.Col, fd.Row, fd.Kind.Glyph(), in)
+		if !look.Monochrome {
+			g.colour(fd.Col, fd.Row, fd.Kind.Colour())
+		}
 	}
 	drawFish(g, s.Fish, face(s.Fish, faces[look.Mood]))
 	style := lipgloss.NewStyle()
@@ -167,6 +170,7 @@ type grid [][]cell
 type cell struct {
 	c  rune // 0 for the second half of a two-cell character
 	in ink
+	fg string // the cell's own colour as #rrggbb, or "" for its ink's
 }
 
 // ink is how a cell is styled.
@@ -205,7 +209,15 @@ func (g grid) set(x, y int, c rune, in ink) {
 	}
 }
 
-// rows renders the grid, styling each run of Fish cells with fishStyle.
+// colour draws the cell at x, y in its own colour fg, on top of its ink.
+func (g grid) colour(x, y int, fg string) {
+	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
+		g[y][x].fg = fg
+	}
+}
+
+// rows renders the grid, styling each run of Fish cells with fishStyle and
+// each cell with a colour of its own in that colour.
 func (g grid) rows(fishStyle lipgloss.Style) []string {
 	styles := map[ink]lipgloss.Style{fishInk: fishStyle, faintInk: faintStyle}
 	out := make([]string, len(g))
@@ -214,12 +226,16 @@ func (g grid) rows(fishStyle lipgloss.Style) []string {
 		for x := 0; x < len(row); {
 			var run strings.Builder
 			end := x
-			for ; end < len(row) && row[end].in == row[x].in; end++ {
+			for ; end < len(row) && row[end].in == row[x].in && row[end].fg == row[x].fg; end++ {
 				if row[end].c != 0 {
 					run.WriteRune(row[end].c)
 				}
 			}
-			if style, ok := styles[row[x].in]; ok {
+			style, ok := styles[row[x].in]
+			if row[x].fg != "" {
+				style, ok = style.Foreground(lipgloss.Color(row[x].fg)), true
+			}
+			if ok {
 				b.WriteString(style.Render(run.String()))
 			} else {
 				b.WriteString(run.String())

@@ -1,8 +1,8 @@
 package app_test
 
 import (
+	"fmt"
 	"math/rand/v2"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -278,20 +278,24 @@ func TestTheTankHoldsAtMostEightPiecesOfFood(t *testing.T) {
 	}
 }
 
-// faintFood matches Food drawn faint, as it fades away.
-var faintFood = regexp.MustCompile(`\x1b\[([0-9]+;)*2(;[0-9]+)*m` + regexp.QuoteMeta(pellet))
-
 func TestFoodOnTheFloorFadesAfterThirtySeconds(t *testing.T) {
 	h := newHarness(t, named("Bubbles")) // Full, so it leaves the Food alone
 	h.resize(80, 24)
 	h.click(5, h.bottom()) // dropped on the sand, so it rests at once
 
-	seen, faint := false, false
+	seen, faint, colour := false, false, ""
 	for range int(30 * time.Second / app.FrameInterval) {
 		h.advance(app.FrameInterval)
 		// The Fish may swim in front of it now and then.
-		seen = seen || h.cellAt(5, h.bottom()) == pellet
-		faint = faint || faintFood.MatchString(h.rawView()[h.bottom()])
+		here, st := h.cellAt(5, h.bottom()) == pellet, h.styleAt(5, h.bottom())
+		if here && !st.faint {
+			colour = st.fg
+		}
+		if here && st.faint && st.fg != colour {
+			t.Fatalf("the fading pellet is drawn in %q, want its colour %q kept", st.fg, colour)
+		}
+		seen = seen || here
+		faint = faint || here && st.faint
 		if h.clock.now.Sub(start) == 20*time.Second && (!seen || faint) {
 			t.Fatalf("after 20 seconds on the floor the pellet is not there, or already fading:\n%s", h.screen())
 		}
@@ -372,4 +376,35 @@ func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
 		}
 	}
 	t.Errorf("clicking on the Fish at (%d, %d) dropped no Food:\n%s", eyeCol, eyeRow, h.screen())
+}
+
+// Each Food Kind is drawn in its own colour, so they can be told apart:
+// pellets brown, flakes orange, worms pink.
+func TestEachFoodKindIsDrawnInItsOwnColour(t *testing.T) {
+	seen := map[string]string{}
+	for _, tc := range []struct {
+		key, glyph, name string
+		looks            func(r, g, b int) bool
+	}{
+		{"1", pellet, "brown pellet", func(r, g, b int) bool { return r > g && g > b && r < 0xd0 }},
+		{"2", flake, "orange flake", func(r, g, b int) bool { return r >= 0xd0 && g > b && r-g >= 0x30 && g-b >= 0x30 }},
+		{"3", worm, "pink worm", func(r, g, b int) bool { return r >= 0xd0 && b > g }},
+	} {
+		h := newHarness(t, named("Bubbles"))
+		h.resize(100, 24)
+		h.press(tc.key)
+		h.click(40, 2)
+		if got := h.cellAt(40, 2); got != tc.glyph {
+			t.Fatalf("a click dropped %q, want a %s %q", got, tc.name, tc.glyph)
+		}
+		fg := h.styleAt(40, 2).fg
+		var r, g, b int
+		if _, err := fmt.Sscanf(fg, "#%02x%02x%02x", &r, &g, &b); err != nil || !tc.looks(r, g, b) {
+			t.Errorf("the %s is drawn in %q", tc.name, fg)
+		}
+		if other, ok := seen[fg]; ok {
+			t.Errorf("the %s is drawn in the same colour as the %s, %q", tc.name, other, fg)
+		}
+		seen[fg] = tc.name
+	}
 }
