@@ -18,6 +18,10 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
+func (realClock) Tick(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg { return app.TickMsg{Time: t} })
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "shellfish:", err)

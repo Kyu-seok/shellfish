@@ -11,10 +11,15 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Clock supplies the current time.
+// Clock supplies the current time and the animation tick source.
 type Clock interface {
 	Now() time.Time
+	// Tick returns a command that delivers one TickMsg after d.
+	Tick(d time.Duration) tea.Cmd
 }
+
+// TickMsg is one animation frame, delivered by the Clock.
+type TickMsg struct{ Time time.Time }
 
 // Deps are everything the app needs from the outside world.
 type Deps struct {
@@ -34,14 +39,16 @@ func New(deps Deps) Model {
 	return Model{deps: deps}
 }
 
-// Init starts the app; nothing runs until the first message arrives.
-func (m Model) Init() tea.Cmd { return nil }
+// Init starts the animation ticks.
+func (m Model) Init() tea.Cmd { return m.deps.Clock.Tick(FrameInterval) }
 
-// Update handles a terminal message: window resizes and keys.
+// Update handles a terminal message (window resizes and keys) or a tick.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+	case TickMsg:
+		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
