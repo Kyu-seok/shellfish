@@ -7,6 +7,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 
 	"github.com/Kyu-seok/shellfish/internal/app"
 )
@@ -30,6 +33,8 @@ type harness struct {
 	dataDir string
 	model   tea.Model
 	last    tea.Cmd
+
+	afterLaunch []func()
 }
 
 type option func(*harness)
@@ -37,11 +42,18 @@ type option func(*harness)
 // withDataDir launches on an existing data folder, as a later launch would.
 func withDataDir(dir string) option { return func(h *harness) { h.dataDir = dir } }
 
+// named launches and names the Fish on its first-launch prompt, so the Tank
+// is open when the test starts.
+func named(name string) option {
+	return func(h *harness) { h.afterLaunch = append(h.afterLaunch, func() { h.nameFish(name) }) }
+}
+
 // at launches with the fake clock at t.
 func at(t time.Time) option { return func(h *harness) { h.clock.now = t } }
 
 func newHarness(t *testing.T, opts ...option) *harness {
 	t.Helper()
+	lipgloss.SetColorProfile(termenv.TrueColor)
 	h := &harness{t: t, clock: &fakeClock{now: start}}
 	for _, o := range opts {
 		o(h)
@@ -55,6 +67,9 @@ func newHarness(t *testing.T, opts ...option) *harness {
 		DataDir: h.dataDir,
 	})
 	h.model, h.last = m, m.Init()
+	for _, f := range h.afterLaunch {
+		f()
+	}
 	return h
 }
 
@@ -94,6 +109,12 @@ func (h *harness) typeText(s string) {
 	}
 }
 
+// nameFish answers the first-launch prompt.
+func (h *harness) nameFish(name string) {
+	h.typeText(name)
+	h.press("enter")
+}
+
 // advance moves fake time forward by d, delivering one animation tick per
 // frame, as the real clock would while the Tank is open.
 func (h *harness) advance(d time.Duration) {
@@ -105,8 +126,14 @@ func (h *harness) advance(d time.Duration) {
 	}
 }
 
-// view is the rendered Tank, one string per terminal row.
+// view is the rendered Tank as plain text, one string per terminal row.
 func (h *harness) view() []string {
+	return strings.Split(ansi.Strip(h.model.View()), "\n")
+}
+
+// rawView is the rendered Tank with its colour escape codes, one string per
+// terminal row. The harness renders as a true-colour terminal would.
+func (h *harness) rawView() []string {
 	return strings.Split(h.model.View(), "\n")
 }
 

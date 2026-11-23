@@ -7,12 +7,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestTankShowsFishAboveSandyFloor(t *testing.T) {
-	h := newHarness(t)
+func TestTankShowsFishAboveSandyFloorAndStatusLine(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
 	h.resize(30, 10)
 
 	want := []string{
-		"",
 		"",
 		"",
 		"             .-~~-.",
@@ -22,6 +21,7 @@ func TestTankShowsFishAboveSandyFloor(t *testing.T) {
 		"",
 		"",
 		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+		" Bubbles · Age 0 days",
 	}
 	got := h.view()
 	if len(got) != len(want) {
@@ -35,7 +35,7 @@ func TestTankShowsFishAboveSandyFloor(t *testing.T) {
 }
 
 func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, named("Bubbles"))
 	for _, size := range []struct{ w, h int }{{30, 10}, {80, 24}, {120, 40}} {
 		h.resize(size.w, size.h)
 		got := h.view()
@@ -47,8 +47,8 @@ func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
 				t.Errorf("%dx%d: row %d is %d cells wide", size.w, size.h, i, w)
 			}
 		}
-		if last := got[len(got)-1]; !strings.Contains(last, "░░░░") {
-			t.Errorf("%dx%d: bottom row %q is not sand", size.w, size.h, last)
+		if floor := got[len(got)-2]; !strings.Contains(floor, "░░░░") {
+			t.Errorf("%dx%d: row above the status line %q is not sand", size.w, size.h, floor)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
 func TestQuitKeysEndTheProgram(t *testing.T) {
 	for _, key := range []string{"q", "esc", "ctrl+c"} {
 		t.Run(key, func(t *testing.T) {
-			h := newHarness(t)
+			h := newHarness(t, named("Bubbles"))
 			h.resize(80, 24)
 			h.press(key)
 			if !h.quitRequested() {
@@ -67,7 +67,7 @@ func TestQuitKeysEndTheProgram(t *testing.T) {
 }
 
 func TestOtherKeysDoNotQuit(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	h.press("x")
 	if h.quitRequested() {
