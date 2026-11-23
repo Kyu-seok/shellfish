@@ -50,13 +50,26 @@ type Model struct {
 	err           error     // a store failure, shown instead of the Tank
 	now           time.Time // the time of the latest tick
 	lastSaved     time.Time // when the Fish was last written to the data folder
+	lock          *store.Lock
+	refusal       string // why this launch was refused, if another Tank is open
 }
 
-// New builds the app from its dependencies. It loads the saved Fish, or
-// starts the naming flow if there is none.
+// New builds the app from its dependencies. It takes the data folder's lock,
+// then loads the saved Fish, or starts the naming flow if there is none. If
+// another Tank holds the lock, the launch is refused: see ExitStatus.
 func New(deps Deps) Model {
 	now := deps.Clock.Now()
 	m := Model{deps: deps, now: now, lastSaved: now}
+	lock, err := store.Acquire(deps.DataDir)
+	if err != nil {
+		if errors.Is(err, store.ErrLocked) {
+			m.refusal = refusal(deps.DataDir)
+		} else {
+			m.err = err
+		}
+		return m
+	}
+	m.lock = lock
 	f, err := store.Load(deps.DataDir)
 	switch {
 	case errors.Is(err, store.ErrNoFish):
@@ -69,8 +82,48 @@ func New(deps Deps) Model {
 	return m
 }
 
-// Init starts the animation ticks.
-func (m Model) Init() tea.Cmd { return m.deps.Clock.Tick(FrameInterval) }
+// refusal is the message for a launch while another Tank is open.
+func refusal(dataDir string) string {
+	name := "Your Fish"
+	if f, err := store.Load(dataDir); err == nil {
+		name = f.Name
+	}
+	return name + " is already swimming in another terminal"
+}
+
+// Init starts the animation ticks, or quits at once if the launch was refused.
+func (m Model) Init() tea.Cmd {
+	if m.refusal != "" {
+		return tea.Quit
+	}
+	return m.deps.Clock.Tick(FrameInterval)
+}
+
+// ExitStatus is the status the process should exit with once the app quits:
+// non-zero if the launch was refused because another Tank is open.
+func (m Model) ExitStatus() int {
+	if m.refusal != "" {
+		return 1
+	}
+	return 0
+}
+
+// ExitMessage is what to print after the app quits, if anything.
+func (m Model) ExitMessage() string { return m.refusal }
+
+// Close releases the data folder's lock. Quitting releases it too; Close is
+// safe to call again afterwards.
+func (m Model) Close() error { return m.lock.Release() }
+
+// quit closes the Tank: it saves the Fish, if there is one, then releases the
+// lock so another launch can open it. Every quit key goes through here.
+func (m Model) quit() (tea.Model, tea.Cmd) {
+	if m.hasFish() {
+		m = m.save(m.deps.Clock.Now())
+	}
+	m.Close()
+	return m, tea.Quit
+}
 
 // Update handles a terminal message (window resizes and keys) or a tick.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -88,15 +141,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.KeyMsg:
+		if m.refusal != "" {
+			return m, tea.Quit
+		}
 		if m.naming {
 			return m.updateNaming(msg)
 		}
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
-			if m.hasFish() {
-				m = m.save(m.deps.Clock.Now())
-			}
-			return m, tea.Quit
+			return m.quit()
 		}
 	}
 	return m, nil
@@ -124,6 +177,9 @@ const sand = "░"
 func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
+	}
+	if m.refusal != "" {
+		return m.messageView(m.refusal)
 	}
 	if m.err != nil {
 		return m.messageView("shellfish: "+m.err.Error(), "", "Press q to quit.")
@@ -249,7 +305,7 @@ func (m Model) messageView(lines ...string) string {
 func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
-		return m, tea.Quit
+		return m.quit()
 	case tea.KeyEnter:
 		f, err := fish.Hatch(string(m.name), m.deps.Clock.Now(), m.deps.Rand)
 		if err != nil {
@@ -268,9 +324,10 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// hasFish reports whether a Fish is living in the Tank: it has been named and
-// loaded without error.
-func (m Model) hasFish() bool { return !m.naming && m.err == nil }
+// hasFish reports whether a Fish is living in this Tank: it has been named and
+// loaded without error, and this launch holds the lock. A refused launch has
+// no Fish of its own, so it never saves.
+func (m Model) hasFish() bool { return m.refusal == "" && !m.naming && m.err == nil }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
 // and writes it to the data folder.

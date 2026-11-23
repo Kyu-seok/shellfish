@@ -25,16 +25,19 @@ func (realClock) Tick(d time.Duration) tea.Cmd {
 }
 
 func main() {
-	if err := run(); err != nil {
+	code, err := run()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "shellfish:", err)
 		os.Exit(1)
 	}
+	os.Exit(code)
 }
 
-func run() error {
+// run opens the Tank and returns the exit status once it closes.
+func run() (int, error) {
 	dir, err := dataDir()
 	if err != nil {
-		return err
+		return 1, err
 	}
 	m := app.New(app.Deps{
 		Clock:      realClock{},
@@ -42,8 +45,20 @@ func run() error {
 		DataDir:    dir,
 		Monochrome: monochrome(),
 	})
-	_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
-	return err
+	defer m.Close()
+	if code := m.ExitStatus(); code != 0 { // refused: no need to open the screen
+		fmt.Fprintln(os.Stderr, m.ExitMessage())
+		return code, nil
+	}
+	final, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	if err != nil {
+		return 1, err
+	}
+	fm := final.(app.Model)
+	if msg := fm.ExitMessage(); msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
+	}
+	return fm.ExitStatus(), nil
 }
 
 // monochrome reports whether to draw without colour: when NO_COLOR is set, or

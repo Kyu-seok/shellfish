@@ -36,8 +36,8 @@ func TestQuittingTheNamingPromptSavesNothing(t *testing.T) {
 	h.typeText("Bub")
 	h.press("esc")
 
-	if entries, _ := os.ReadDir(h.dataDir); len(entries) != 0 {
-		t.Errorf("quitting before naming saved files: %v", entries)
+	if files := dataFiles(h.dataDir); len(files) != 0 {
+		t.Errorf("quitting before naming saved files: %v", files)
 	}
 }
 

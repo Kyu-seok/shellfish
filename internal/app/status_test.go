@@ -10,6 +10,7 @@ import (
 
 func TestStatusLineShowsNameAndAgeInDays(t *testing.T) {
 	first := newHarness(t, named("Bubbles"))
+	first.press("q")
 
 	for _, tc := range []struct {
 		after time.Duration
@@ -26,6 +27,7 @@ func TestStatusLineShowsNameAndAgeInDays(t *testing.T) {
 		if status := strings.TrimSpace(got[len(got)-1]); !strings.HasPrefix(status, "Bubbles · ") || ageShown(status) != tc.want {
 			t.Errorf("after %v the status line is %q, want the name first and %q", tc.after, status, tc.want)
 		}
+		h.press("q")
 	}
 }
 
