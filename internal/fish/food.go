@@ -25,6 +25,9 @@ func (k FoodKind) Value() float64 { return foodKinds[k].value }
 // SinkSpeed is how fast Food of this kind sinks, in rows per second.
 func (k FoodKind) SinkSpeed() float64 { return foodKinds[k].sink }
 
+// Colour is the colour Food of this kind is drawn in, as a #rrggbb hex string.
+func (k FoodKind) Colour() string { return foodKinds[k].colour }
+
 // Full reports whether the Fish is Full: its Hunger is within FullMargin of
 // the lowest. A Full Fish ignores Food. Hunger rises all the time, so without
 // the margin a Fish would stop being Full the moment after it ate.

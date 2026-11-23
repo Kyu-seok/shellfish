@@ -432,21 +432,32 @@ func cells(row string) []string {
 	return out
 }
 
+// waterTop is the top row of water, just below the surface.
+const waterTop = 1
+
+// sandGlyphs are what the sandy floor is made of: sand and pebbles.
+const sandGlyphs = "░▒.,o"
+
 // floorRow is the index of the sandy floor: the last row that is all sand.
 func floorRow(rows []string) int {
 	for y := len(rows) - 1; y >= 0; y-- {
-		if r := strings.TrimRight(rows[y], " "); r != "" && strings.Trim(r, "░") == "" {
+		if r := rows[y]; strings.Contains(r, "░") && strings.Trim(r, sandGlyphs) == "" {
 			return y
 		}
 	}
 	return -1
 }
 
-// seaweedCells counts the seaweed drawn in a frame.
+// seaweedCells counts the kelp and grass characters drawn in a frame's
+// water, above the sand.
 func seaweedCells(rows []string) int {
 	n := 0
-	for _, row := range rows {
-		n += strings.Count(row, "{") + strings.Count(row, "}")
+	for _, row := range rows[:max(floorRow(rows), 0)] {
+		for _, c := range row {
+			if strings.ContainsRune(`()\|/`, c) {
+				n++
+			}
+		}
 	}
 	return n
 }
