@@ -134,7 +134,7 @@ var (
 
 // colouredAs reports whether st's foreground is one of looks.
 func colouredAs(st style, looks ...func(r, g, b int) bool) bool {
-	r, g, b, ok := rgb(st.fg)
+	r, g, b, ok := rgbOf(st.fg)
 	if !ok {
 		return false
 	}

@@ -178,26 +178,13 @@ func TestEverySpeciesReachesFoodOnEveryColumnOfTheFloor(t *testing.T) {
 				h.clock.now = h.clock.now.Add(144 * time.Minute) // Hunger up 10, as much as a pellet takes off
 				h.advance(app.FrameInterval)                     // which the periodic save notes
 				h.click(col, h.bottom())
-				if !h.eats(10 * time.Second) {
+				if _, ate := h.eats(10 * time.Second); !ate {
 					t.Fatalf("%dx%d: the Fish never ate the Food dropped on the floor at column %d:\n%s",
 						size.w, size.h, col, h.screen())
 				}
 			}
 		}
 	})
-}
-
-// eats advances up to limit, a frame at a time, until the Fish eats, and
-// reports whether it did.
-func (h *harness) eats(limit time.Duration) bool {
-	before := readSave(h.t, h.dataDir).Hunger
-	for range int(limit / app.FrameInterval) {
-		h.advance(app.FrameInterval)
-		if readSave(h.t, h.dataDir).Hunger < before {
-			return true
-		}
-	}
-	return false
 }
 
 // In monochrome every Species is a plain silhouette with its eye a hole

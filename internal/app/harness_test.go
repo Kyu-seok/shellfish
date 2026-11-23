@@ -309,10 +309,13 @@ func near(a, b string) bool {
 	return ok && ok2 && abs(ar-br) <= 1 && abs(ag-bg) <= 1 && abs(ab-bb) <= 1
 }
 
-// rgbOf reads a "#rrggbb" colour.
+// rgbOf splits a "#rrggbb" colour into its channels.
 func rgbOf(colour string) (r, g, b int, ok bool) {
-	n, err := strconv.ParseUint(strings.TrimPrefix(colour, "#"), 16, 32)
-	if err != nil || len(colour) != 7 {
+	if len(colour) != 7 || colour[0] != '#' {
+		return 0, 0, 0, false
+	}
+	n, err := strconv.ParseUint(colour[1:], 16, 32)
+	if err != nil {
 		return 0, 0, 0, false
 	}
 	return int(n >> 16 & 0xff), int(n >> 8 & 0xff), int(n & 0xff), true
@@ -696,16 +699,26 @@ func (h *harness) count(glyph string) int {
 // frames leading up to it, or fails the test if the Fish doesn't eat in time.
 func (h *harness) meal(limit time.Duration) (hunger float64, frames []string) {
 	h.t.Helper()
+	frames, ok := h.eats(limit)
+	if !ok {
+		h.t.Fatalf("the Fish ate nothing in %v:\n%s", limit, h.screen())
+	}
+	return readSave(h.t, h.dataDir).Hunger, frames
+}
+
+// eats advances up to limit, a frame at a time, until the Fish eats: until
+// the saved Hunger drops. It returns the frames up to then, and whether the
+// Fish ate.
+func (h *harness) eats(limit time.Duration) (frames []string, ok bool) {
 	before := readSave(h.t, h.dataDir).Hunger
 	for range int(limit / app.FrameInterval) {
 		h.advance(app.FrameInterval)
 		frames = append(frames, h.screen())
-		if after := readSave(h.t, h.dataDir).Hunger; after < before {
-			return after, frames
+		if readSave(h.t, h.dataDir).Hunger < before {
+			return frames, true
 		}
 	}
-	h.t.Fatalf("the Fish ate nothing in %v:\n%s", limit, h.screen())
-	return 0, nil
+	return frames, false
 }
 
 // bottom is the lowest row of water, just above the sand.

@@ -39,27 +39,15 @@ func (h *harness) plants() []plant {
 	return out
 }
 
-// rgb splits a "#rrggbb" colour into its channels.
-func rgb(hex string) (r, g, b int, ok bool) {
-	if len(hex) != 7 || hex[0] != '#' {
-		return 0, 0, 0, false
-	}
-	n, err := strconv.ParseUint(hex[1:], 16, 32)
-	if err != nil {
-		return 0, 0, 0, false
-	}
-	return int(n >> 16), int(n >> 8 & 0xff), int(n & 0xff), true
-}
-
 // green reports whether hex is a colour whose green clearly leads.
 func green(hex string) bool {
-	r, g, b, ok := rgb(hex)
+	r, g, b, ok := rgbOf(hex)
 	return ok && g > r+30 && g > b+30
 }
 
 // brightness is a rough lightness of hex.
 func brightness(hex string) int {
-	r, g, b, _ := rgb(hex)
+	r, g, b, _ := rgbOf(hex)
 	return r + g + b
 }
 
