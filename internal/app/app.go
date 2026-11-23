@@ -5,6 +5,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -45,12 +46,14 @@ type Model struct {
 	fish          fish.Fish
 	err           error     // a store failure, shown instead of the Tank
 	now           time.Time // the time of the latest tick
+	lastSaved     time.Time // when the Fish was last written to the data folder
 }
 
 // New builds the app from its dependencies. It loads the saved Fish, or
 // starts the naming flow if there is none.
 func New(deps Deps) Model {
-	m := Model{deps: deps, now: deps.Clock.Now()}
+	now := deps.Clock.Now()
+	m := Model{deps: deps, now: now, lastSaved: now}
 	f, err := store.Load(deps.DataDir)
 	switch {
 	case errors.Is(err, store.ErrNoFish):
@@ -58,7 +61,7 @@ func New(deps Deps) Model {
 	case err != nil:
 		m.err = err
 	default:
-		m.fish = f
+		m.fish = f.CatchUp(m.now)
 	}
 	return m
 }
@@ -73,6 +76,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 	case TickMsg:
 		m.now = msg.Time
+		if m.hasFish() {
+			m.fish = m.fish.CatchUp(m.now)
+			// A clock that moved backwards saves now instead of waiting to catch up.
+			if since := m.now.Sub(m.lastSaved); since >= SaveInterval || since < 0 {
+				m = m.save(m.now)
+			}
+		}
 		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.KeyMsg:
 		if m.naming {
@@ -80,17 +90,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
+			if m.hasFish() {
+				m = m.save(m.deps.Clock.Now())
+			}
 			return m, tea.Quit
 		}
 	}
 	return m, nil
 }
 
-// fishSprite is the puffball facing right.
-var fishSprite = []string{
-	"   .-~~-.",
-	"><(  ◕ ᴗ )",
-	"   `-..-'",
+// fishSprite is the puffball facing right, wearing face.
+func fishSprite(face string) []string {
+	return []string{
+		"   .-~~-.",
+		"><(  " + face + " )",
+		"   `-..-'",
+	}
+}
+
+// faces is the Fish's face for each Mood.
+var faces = map[fish.Mood]string{
+	fish.Content:  "◕ ᴗ",
+	fish.Hungry:   "• _",
+	fish.Starving: "; ﹏",
 }
 
 const sand = "░"
@@ -110,18 +132,19 @@ func (m Model) View() string {
 	statusRow := m.height - 1
 	floorRow := statusRow - 1
 
+	sprite := fishSprite(faces[m.fish.Mood()])
 	spriteW := 0
-	for _, line := range fishSprite {
+	for _, line := range sprite {
 		spriteW = max(spriteW, ansi.StringWidth(line))
 	}
 	body := lipgloss.NewStyle().Foreground(lipgloss.Color(m.fish.Colour))
-	top := (floorRow - len(fishSprite)) / 2
+	top := (floorRow - len(sprite)) / 2
 	left := max((m.width-spriteW)/2, 0)
 
 	for y := 0; y < floorRow; y++ {
 		row := ""
-		if i := y - top; i >= 0 && i < len(fishSprite) {
-			row = strings.Repeat(" ", left) + body.Render(fishSprite[i])
+		if i := y - top; i >= 0 && i < len(sprite) {
+			row = strings.Repeat(" ", left) + body.Render(sprite[i])
 		}
 		rows[y] = fit(row, m.width)
 	}
@@ -130,14 +153,22 @@ func (m Model) View() string {
 	return strings.Join(rows, "\n")
 }
 
-// statusLine shows the Fish's name and Age.
+// statusLine shows the Fish's name, its Hunger meter and its Age.
 func (m Model) statusLine() string {
 	days := m.fish.Age(m.now)
 	unit := "days"
 	if days == 1 {
 		unit = "day"
 	}
-	return fmt.Sprintf(" %s · Age %d %s", m.fish.Name, days, unit)
+	return fmt.Sprintf(" %s · Hunger %s · Age %d %s", m.fish.Name, hungerMeter(m.fish.Hunger), days, unit)
+}
+
+// hungerMeter draws Hunger as HungerMeterCells cells, filled from the left
+// as the Fish gets hungrier.
+func hungerMeter(hunger float64) string {
+	filled := int(math.Round(hunger / fish.MaxHunger * HungerMeterCells))
+	filled = min(max(filled, 0), HungerMeterCells)
+	return strings.Repeat("▰", filled) + strings.Repeat("▱", HungerMeterCells-filled)
 }
 
 // fit pads or truncates s to exactly w cells.
@@ -187,7 +218,7 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.fish, m.naming = f, false
-		m.err = store.Save(m.deps.DataDir, f)
+		m = m.save(f.Born)
 	case tea.KeyBackspace:
 		if len(m.name) > 0 {
 			m.name = m.name[:len(m.name)-1]
@@ -196,4 +227,18 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.name, m.nameErr = append(slices.Clone(m.name), msg.Runes...), nil
 	}
 	return m, nil
+}
+
+// hasFish reports whether a Fish is living in the Tank: it has been named and
+// loaded without error.
+func (m Model) hasFish() bool { return !m.naming && m.err == nil }
+
+// save brings the Fish up to date at now, marks the Tank as last seen then,
+// and writes it to the data folder.
+func (m Model) save(now time.Time) Model {
+	m.fish = m.fish.CatchUp(now)
+	m.fish.LastSeen = now
+	m.lastSaved = now
+	m.err = store.Save(m.deps.DataDir, m.fish)
+	return m
 }

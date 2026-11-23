@@ -20,3 +20,13 @@ var Palette = []Colour{
 	"#BAE1FF", // sky
 	"#D7BAFF", // lilac
 }
+
+// HungerPerDay is how much Hunger rises in 24 hours, open or closed.
+const HungerPerDay = 100.0
+
+// HungryAt and StarvingAt are the lowest Hunger of the Hungry and Starving
+// Mood bands. Below HungryAt the Fish is Content.
+const (
+	HungryAt   = 40.0
+	StarvingAt = 80.0
+)
