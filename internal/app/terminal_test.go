@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kyu-seok/shellfish/internal/app"
 )
 
 const bigger = "Make me a bigger tank 🐟"
@@ -101,18 +103,69 @@ func TestMonochromeDrawsNoColour(t *testing.T) {
 		h.click(30+5*i, 2)
 	}
 
-	raw := strings.Join(h.rawView(), "\n")
-	if colourSGR.MatchString(raw) {
-		t.Errorf("monochrome Tank has colour escape codes: %q", raw)
+	// Watch the Food fall and bubbles rise, with the Fish found and whole
+	// in every frame.
+	bubble := false
+	for i := range int(10 * time.Second / app.FrameInterval) {
+		h.watch(app.FrameInterval)
+		raw := strings.Join(h.rawView(), "\n")
+		if colourSGR.MatchString(raw) {
+			t.Fatalf("frame %d: monochrome Tank has colour escape codes: %q", i, raw)
+		}
+		rows := h.view()
+		for _, row := range rows[waterTop:floorRow(rows)] {
+			bubble = bubble || strings.ContainsAny(row, "°oO")
+		}
+	}
+	if !bubble {
+		t.Error("no bubble rose in 10 seconds to check for colour")
 	}
 	screen := strings.Join(h.view(), "\n")
-	if !showsFish(h.screen()) || !strings.Contains(screen, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days") {
-		t.Errorf("monochrome Tank is missing the Fish or status line:\n%s", screen)
+	if !strings.Contains(screen, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days") {
+		t.Errorf("monochrome Tank is missing the status line:\n%s", screen)
 	}
 	h.press("q")
 	if !h.quitRequested() {
 		t.Error("q does not quit in monochrome")
 	}
+}
+
+// In monochrome the Fish is a plain silhouette, with its eye left clear so
+// it still reads as a face.
+func TestMonochromeFishHasAGapForItsEye(t *testing.T) {
+	h := newHarness(t, named("Bubbles"), monochrome())
+	h.resize(80, 24)
+	turned := map[bool]bool{}
+	for i := range int(20 * time.Second / app.FrameInterval) {
+		h.advance(app.FrameInterval)
+		rows := h.view()
+		s, ok := findFish(h.rawView())
+		if !ok || !s.intact {
+			t.Fatalf("frame %d: no whole Fish found in monochrome:\n%s", i, strings.Join(rows, "\n"))
+		}
+		if !eyeGap(rows, s.left, s.top, s.facingLeft) {
+			t.Fatalf("frame %d: the Fish's eye is not a gap in its silhouette:\n%s", i, strings.Join(rows, "\n"))
+		}
+		turned[s.facingLeft] = true
+	}
+	if len(turned) < 2 {
+		t.Error("the Fish never turned in 20 seconds, so only one way was checked")
+	}
+}
+
+// Fading things are still faint in monochrome: faint is not a colour.
+func TestFadingFoodIsFaintInMonochrome(t *testing.T) {
+	h := newHarness(t, named("Bubbles"), monochrome()) // Full, so it leaves the Food alone
+	h.resize(80, 24)
+	h.click(5, h.bottom()) // dropped on the sand, so it rests at once
+
+	for range int(30 * time.Second / app.FrameInterval) {
+		h.advance(app.FrameInterval)
+		if h.cellAt(5, h.bottom()) == pellet && h.styleAt(5, h.bottom()).faint {
+			return
+		}
+	}
+	t.Error("the pellet never faded in monochrome")
 }
 
 func TestColourTankDoesDrawColour(t *testing.T) {
