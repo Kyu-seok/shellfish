@@ -80,6 +80,9 @@ func Tank(s tank.Snapshot, look Look) []string {
 	drawSand(g, s, look)
 	for _, b := range s.Bubbles {
 		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
+		if !look.Monochrome {
+			g.colour(b.Col, b.Row, bubbleColour)
+		}
 	}
 	for _, fl := range s.Flourishes {
 		in := fishInk

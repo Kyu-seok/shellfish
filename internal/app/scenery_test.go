@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -107,5 +108,77 @@ func TestTwoShellsRestOnTheSandAndStayPut(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// rgb is a "#rrggbb" colour's red, green and blue, or ok false for none.
+func rgb(hex string) (r, g, b int, ok bool) {
+	if _, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b); err != nil {
+		return 0, 0, 0, false
+	}
+	return r, g, b, true
+}
+
+// The Scenery's colours, by what they look like rather than exact shades.
+var (
+	blue = func(r, g, b int) bool { return b > r+40 && b > g }
+	tan  = func(r, g, b int) bool { return r > g && g > b && r-b > 40 }
+	grey = func(r, g, b int) bool { return max(r, g, b)-min(r, g, b) < 16 }
+	pink = func(r, g, b int) bool { return r > 200 && r > g+40 && r > b+40 }
+	// paleCyan is light, with green and blue above red.
+	paleCyan = func(r, g, b int) bool { return min(r, g, b) > 150 && g > r && b > r }
+)
+
+// colouredAs reports whether st's foreground is one of looks.
+func colouredAs(st style, looks ...func(r, g, b int) bool) bool {
+	r, g, b, ok := rgb(st.fg)
+	if !ok {
+		return false
+	}
+	for _, l := range looks {
+		if l(r, g, b) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTheSceneryIsInColourWithNoBackground(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(80, 24)
+
+	bubble := false
+	for range 10 {
+		h.advance(time.Second)
+		rows := h.view()
+		floor := floorRow(rows)
+		fish, seen := findFish(rows)
+		for y, row := range rows {
+			for x, c := range cells(row) {
+				st := h.styleAt(x, y)
+				if st.bg != "" {
+					t.Fatalf("cell (%d, %d) %q has a background colour %s", x, y, c, st.bg)
+				}
+				inFish := seen && x >= fish.left && x < fish.left+fishBoxWidth && y >= fish.top && y < fish.top+3
+				switch {
+				case y == 0 && !colouredAs(st, blue):
+					t.Fatalf("the surface's %q at column %d is %q, want blue", c, x, st.fg)
+				case y == floor && c == "o" && !colouredAs(st, grey):
+					t.Fatalf("the pebble at column %d is %q, want grey", x, st.fg)
+				case y == floor && c != "o" && !colouredAs(st, tan):
+					t.Fatalf("the sand's %q at column %d is %q, want tan", c, x, st.fg)
+				case y == floor-1 && (c == "@" || c == "Ѡ") && !colouredAs(st, pink):
+					t.Fatalf("the shell %q at column %d is %q, want pink", c, x, st.fg)
+				case y > 0 && y < floor && !inFish && strings.Contains("°oO", c) && c != "":
+					bubble = true
+					if !colouredAs(st, paleCyan) {
+						t.Fatalf("the bubble %q at (%d, %d) is %q, want pale cyan", c, x, y, st.fg)
+					}
+				}
+			}
+		}
+	}
+	if !bubble {
+		t.Error("no bubble rose in 10 seconds to check the colour of")
 	}
 }

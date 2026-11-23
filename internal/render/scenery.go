@@ -13,6 +13,7 @@ const (
 	darkSand      = "#9C8460"
 	pebbleColour  = "#8E8E8E"
 	shellColour   = "#F4A6A6"
+	bubbleColour  = "#BFEFFF"
 )
 
 // drawSurface draws the top row as a slowly drifting wave line.
