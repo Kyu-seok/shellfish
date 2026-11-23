@@ -6,14 +6,6 @@ import "github.com/Kyu-seok/shellfish/internal/fish"
 // seconds. A cell is about twice as tall as it is wide, so vertical speeds are
 // kept lower than horizontal ones.
 
-// FishWidth and FishHeight are the size of the box the Fish's drawing fits
-// in, in cells. Most faces make it 10 cells wide; the box leaves room for a
-// face with a two-cell character.
-const (
-	FishWidth  = 11
-	FishHeight = 3
-)
-
 const (
 	// CruiseSpeed is the Fish's top speed on an ordinary trip.
 	CruiseSpeed = 8.0

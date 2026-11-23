@@ -153,7 +153,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		w, h := tankArea(msg.Width, msg.Height)
 		if m.tank == nil {
-			m.tank = tank.New(m.deps.Rand, w, h)
+			m.tank = tank.New(m.deps.Rand, w, h, render.PuffballBody)
 		} else {
 			m.tank.Resize(w, h)
 		}
