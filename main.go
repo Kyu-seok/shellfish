@@ -1,0 +1,71 @@
+// Command shellfish is a virtual pet Fish that lives in the terminal.
+package main
+
+import (
+	"fmt"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"runtime"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/Kyu-seok/shellfish/internal/app"
+)
+
+type realClock struct{}
+
+func (realClock) Now() time.Time { return time.Now() }
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "shellfish:", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	dir, err := dataDir()
+	if err != nil {
+		return err
+	}
+	m := app.New(app.Deps{
+		Clock:   realClock{},
+		Rand:    rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
+		DataDir: dir,
+	})
+	_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
+	return err
+}
+
+// dataDir is $XDG_DATA_HOME/shellfish, falling back to the platform's user
+// data folder.
+func dataDir() (string, error) {
+	base, err := userDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "shellfish"), nil
+}
+
+func userDataDir() (string, error) {
+	if xdg := os.Getenv("XDG_DATA_HOME"); filepath.IsAbs(xdg) {
+		return xdg, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("finding home folder: %w", err)
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support"), nil
+	case "windows":
+		if local := os.Getenv("LOCALAPPDATA"); local != "" {
+			return local, nil
+		}
+		return filepath.Join(home, "AppData", "Local"), nil
+	default:
+		return filepath.Join(home, ".local", "share"), nil
+	}
+}
