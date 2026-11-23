@@ -71,7 +71,7 @@ func TestTheGreetingIsDrawnNearTheTopOfTheTank(t *testing.T) {
 	if !strings.Contains(rows[1], "Bubbles missed you!") {
 		t.Errorf("second row = %q, want the greeting there:\n%s", rows[1], h.screen())
 	}
-	if !strings.Contains(h.screen(), contentFace) {
+	if h.fishMood() != "Content" {
 		t.Errorf("the greeting hides the Fish:\n%s", h.screen())
 	}
 }

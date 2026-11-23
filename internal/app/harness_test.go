@@ -5,7 +5,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/Kyu-seok/shellfish/internal/app"
+	"github.com/Kyu-seok/shellfish/internal/render"
 )
 
 // start is the fake clock's time when a harness is built, unless overridden.
@@ -147,6 +147,15 @@ func (h *harness) view() []string {
 	return strings.Split(ansi.Strip(h.model.View()), "\n")
 }
 
+// plain is the coloured rows raw as plain text.
+func plain(raw []string) []string {
+	rows := make([]string, len(raw))
+	for y, r := range raw {
+		rows[y] = ansi.Strip(r)
+	}
+	return rows
+}
+
 // rawView is the rendered Tank with its colour escape codes, one string per
 // terminal row. The harness renders as a true-colour terminal would.
 func (h *harness) rawView() []string {
@@ -168,33 +177,247 @@ func (h *harness) exitStatus() int {
 	return h.model.(app.Model).ExitStatus()
 }
 
-// sighting is where the Fish was seen in one rendered frame.
+// sighting is where the Fish was seen in one rendered frame, and how it
+// looked.
 type sighting struct {
 	left, top  int  // top-left cell of the Fish's box
-	facingLeft bool // the drawing is mirrored
-	tail       string
-	face       string // as it would face right, such as "◕ ᴗ"
-	intact     bool   // all three rows of the drawing are whole and in place
+	facingLeft bool // the drawing is mirrored: its eye is in the left half
+	intact     bool // the whole box is drawn, in place
+	// tailLift is how high the tail's pixels sit, on average, in pixel
+	// rows from the box's top. It swings up and down as the tail swishes.
+	tailLift float64
+
+	// mood is "Content", "Hungry" or "Starving", read from its eye, or ""
+	// while it blinks.
+	mood     string
+	blinking bool // its eye is all lid
+	eating   bool // its mouth is open, just before it eats
 }
 
-// fishBoxWidth is how many cells wide the box the Fish is drawn in is.
-const fishBoxWidth = 11
-
-// The Fish's faces as it faces right: one for each Mood, and the ones it
-// wears just before it eats and while it blinks.
-const (
-	contentFace  = "◕ ᴗ"
-	hungryFace   = "• _"
-	starvingFace = "; ﹏"
-	eatingFace   = "◕ o"
-	blinkFace    = "- ᴗ"
+// The Fish is a clownfish: art is how it is drawn, and body its box and
+// mouth in cells.
+var (
+	art  = render.Clownfish
+	body = art.Body()
 )
 
-// The Fish's back and belly, the same either way it faces.
-const (
-	fishBack  = ".-~~-."
-	fishBelly = "`-..-'"
-)
+// tearColour is the tear a Starving Fish sheds below its eye.
+const tearColour = "#7fd4ff"
+
+// isFishCell reports whether the character c is part of the Fish: the Fish
+// is drawn in sextants (U+1FB00 to U+1FB3B) and ▌▐█, and nothing else is.
+func isFishCell(c string) bool {
+	r, _ := utf8.DecodeRuneInString(c)
+	return r >= 0x1FB00 && r <= 0x1FB3B || c == "▌" || c == "▐" || c == "█"
+}
+
+// fishCells are the cells the Fish is drawn in, as col, row pairs.
+func fishCells(rows []string) [][2]int {
+	var out [][2]int
+	for y, row := range rows {
+		for x, c := range cells(row) {
+			if isFishCell(c) {
+				out = append(out, [2]int{x, y})
+			}
+		}
+	}
+	return out
+}
+
+// showsFish reports whether any of the Fish is drawn on screen.
+func showsFish(screen string) bool {
+	return len(fishCells(strings.Split(screen, "\n"))) > 0
+}
+
+// fishBounds is the box around every cell of the Fish drawn in rows, or
+// false if there is none.
+func fishBounds(rows []string) (minX, minY, maxX, maxY int, ok bool) {
+	minX, minY, maxX, maxY = 1<<30, 1<<30, -1, -1
+	for y, row := range rows {
+		for x, c := range cells(row) {
+			if isFishCell(c) {
+				minX, minY, maxX, maxY = min(minX, x), min(minY, y), max(maxX, x), max(maxY, y)
+			}
+		}
+	}
+	return minX, minY, maxX, maxY, maxY >= 0
+}
+
+// colours is every foreground and background colour of rows' cells in
+// columns x0 to x1 and rows y0 to y1.
+func colours(raw []string, x0, y0, x1, y1 int) map[string]bool {
+	seen := map[string]bool{}
+	for y := y0; y <= y1; y++ {
+		for x := x0; x <= x1; x++ {
+			if y < 0 || y >= len(raw) {
+				continue
+			}
+			st := styleIn(raw[y], x)
+			seen[st.fg], seen[st.bg] = true, true
+		}
+	}
+	delete(seen, "")
+	return seen
+}
+
+// eyeArea is the cells of the box the eye is drawn in, facing left or
+// right, counted from the box's top-left.
+func eyeArea(left bool) (x0, y0, x1, y1 int) {
+	e := art.Eye
+	x0, x1 = int(e.X-e.R), int(e.X+e.R)
+	if left {
+		x0, x1 = body.Width-1-x1, body.Width-1-x0
+	}
+	return x0, int((e.Y - e.R) / 2), x1, int((e.Y + e.R) / 2)
+}
+
+// hasColour reports whether set holds want, give or take the rounding a
+// colour goes through on its way to the terminal.
+func hasColour(set map[string]bool, want string) bool {
+	for c := range set {
+		if near(c, want) {
+			return true
+		}
+	}
+	return false
+}
+
+// near reports whether colours a and b are the same but for rounding.
+func near(a, b string) bool {
+	ar, ag, ab, ok := rgbOf(a)
+	br, bg, bb, ok2 := rgbOf(b)
+	return ok && ok2 && abs(ar-br) <= 1 && abs(ag-bg) <= 1 && abs(ab-bb) <= 1
+}
+
+// rgbOf reads a "#rrggbb" colour.
+func rgbOf(colour string) (r, g, b int, ok bool) {
+	n, err := strconv.ParseUint(strings.TrimPrefix(colour, "#"), 16, 32)
+	if err != nil || len(colour) != 7 {
+		return 0, 0, 0, false
+	}
+	return int(n >> 16 & 0xff), int(n >> 8 & 0xff), int(n & 0xff), true
+}
+
+// isDark reports whether colour is a dark one, near black.
+func isDark(colour string) bool {
+	r, g, b, ok := rgbOf(colour)
+	return ok && max(r, g, b) < 0x40
+}
+
+// findFish finds the Fish in a frame's coloured rows and reads how it looks:
+// which way its eye faces, what its eye shows and whether its mouth is open.
+func findFish(raw []string) (sighting, bool) {
+	rows := plain(raw)
+	minX, minY, maxX, maxY, ok := fishBounds(rows)
+	if !ok {
+		return sighting{}, false
+	}
+	s := sighting{top: minY}
+	var eye map[string]bool
+	for _, left := range []bool{false, true} {
+		// The head's edge is always drawn; the tail's tip may not be.
+		s.left = maxX - (body.Width - 1)
+		if left {
+			s.left = minX
+		}
+		x0, y0, x1, y1 := eyeArea(left)
+		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
+		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) {
+			s.facingLeft = left
+			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
+			break
+		}
+	}
+	if !s.intact {
+		return s, true
+	}
+	x0, y0, x1, y1 := eyeArea(s.facingLeft)
+	white, lid := hasColour(eye, art.Eye.White), hasColour(eye, art.Eye.Lid)
+	switch {
+	case hasColour(colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1+1), tearColour):
+		s.mood = "Starving"
+	case lid && white:
+		s.mood = "Hungry"
+	case white:
+		s.mood = "Content"
+	default:
+		s.blinking = true
+	}
+	mouth := s.left + body.MouthRight
+	if s.facingLeft {
+		mouth = s.left + body.MouthLeft
+	}
+	if st := styleIn(raw[s.top+body.MouthRow], mouth); isDark(st.fg) && (st.bg == "" || isDark(st.bg)) {
+		s.eating = true
+	}
+	// The tail is behind where it joins the body.
+	tailX0, tailX1 := 0, int(art.TailRoot)-1
+	if s.facingLeft {
+		tailX0, tailX1 = body.Width-1-tailX1, body.Width-1
+	}
+	pixels, rowSum := 0, 0
+	for y := s.top; y < s.top+body.Height; y++ {
+		row := cells(rows[y])
+		for x := s.left + tailX0; x <= s.left+tailX1 && x < len(row); x++ {
+			mask := sextantMask(row[x])
+			if styleIn(raw[y], x).bg != "" {
+				mask = 63 // both colours are the Fish's: no pixel is clear
+			}
+			for bit := range 6 {
+				if mask&(1<<bit) != 0 {
+					pixels++
+					rowSum += (y-s.top)*3 + bit/2
+				}
+			}
+		}
+	}
+	if pixels > 0 {
+		s.tailLift = float64(rowSum) / float64(pixels)
+	}
+	return s, true
+}
+
+// sextantMask is which of a cell's 2×3 pixels the character c fills: bits
+// run left to right, top to bottom, top-left 1, top-right 2, middle-left 4,
+// and so on. The sextants U+1FB00 to U+1FB3B leave out the four patterns
+// with a character of their own: empty, ▌, ▐ and full.
+func sextantMask(c string) int {
+	switch c {
+	case " ":
+		return 0
+	case "▌":
+		return 21
+	case "▐":
+		return 42
+	case "█":
+		return 63
+	}
+	r, _ := utf8.DecodeRuneInString(c)
+	m := int(r-0x1FB00) + 1
+	if m >= 21 {
+		m++
+	}
+	if m >= 42 {
+		m++
+	}
+	return m
+}
+
+// fishMood is the Mood the Fish's eye shows, or "" if there is no whole
+// Fish. If the Fish is blinking, it waits for the blink to end.
+func (h *harness) fishMood() string {
+	for range 10 {
+		s, ok := findFish(h.rawView())
+		if !ok || !s.intact {
+			return ""
+		}
+		if !s.blinking {
+			return s.mood
+		}
+		h.advance(app.FrameInterval)
+	}
+	return ""
+}
 
 // cells splits a row into its terminal cells. A two-cell character fills
 // its first cell and leaves "" in the second.
@@ -207,57 +430,6 @@ func cells(row string) []string {
 		}
 	}
 	return out
-}
-
-// cellsMatch reports whether row holds want starting at cell x.
-func cellsMatch(row []string, x int, want string) bool {
-	w := cells(want)
-	if x < 0 || x+len(w) > len(row) {
-		return false
-	}
-	return slices.Equal(row[x:x+len(w)], w)
-}
-
-// findFish looks for the Fish's back and reads the drawing below it: its
-// face between its fins, its belly and its tail.
-func findFish(rows []string) (sighting, bool) {
-	for y := 0; y+2 < len(rows); y++ {
-		top := cells(rows[y])
-		for x := range top {
-			if !cellsMatch(top, x, fishBack) {
-				continue
-			}
-			mid, low := cells(rows[y+1]), cells(rows[y+2])
-			if x < 1 || mid[x-1] != "(" {
-				continue
-			}
-			// Between its fins: the face, then a space and ")".
-			end := slices.Index(mid[x:], ")")
-			if end < 0 {
-				continue
-			}
-			inner := strings.Join(mid[x:x+end], "")
-			s := sighting{top: y}
-			var tailAt int
-			if x >= 3 && mid[x-3] == ">" && (mid[x-2] == "<" || mid[x-2] == "-") {
-				s.left, tailAt = x-3, x-3
-				s.intact = strings.HasPrefix(inner, "  ") && strings.HasSuffix(inner, " ") && !strings.HasSuffix(inner, "  ")
-				s.face = strings.TrimSpace(inner)
-			} else {
-				s.facingLeft, s.left, tailAt = true, x-1, x+end+1
-				s.intact = strings.HasPrefix(inner, " ") && !strings.HasPrefix(inner, "  ") && strings.HasSuffix(inner, "  ")
-				f := strings.Fields(inner)
-				slices.Reverse(f)
-				s.face = strings.Join(f, " ")
-			}
-			s.intact = s.intact && cellsMatch(low, x, fishBelly)
-			if tailAt+2 <= len(mid) {
-				s.tail = mid[tailAt] + mid[tailAt+1]
-			}
-			return s, true
-		}
-	}
-	return sighting{}, false
 }
 
 // floorRow is the index of the sandy floor: the last row that is all sand.
@@ -288,19 +460,18 @@ func (h *harness) watch(d time.Duration) []sighting {
 	weed := seaweedCells(h.view())
 	for range int(d / app.FrameInterval) {
 		h.advance(app.FrameInterval)
-		rows := h.view()
-		s, ok := findFish(rows)
+		raw := h.rawView()
+		rows := plain(raw)
+		s, ok := findFish(raw)
 		switch {
 		case !ok:
 			h.t.Fatalf("frame %d: no Fish in the Tank:\n%s", len(seen), strings.Join(rows, "\n"))
 		case !s.intact:
-			h.t.Fatalf("frame %d: the Fish is cut off or overlapped:\n%s", len(seen), strings.Join(rows, "\n"))
-		case s.top+3 > floorRow(rows):
+			h.t.Fatalf("frame %d: the Fish is cut off or overlapped (%+v):\n%s", len(seen), s, strings.Join(rows, "\n"))
+		case s.top+body.Height > floorRow(rows):
 			h.t.Fatalf("frame %d: the Fish reaches the floor:\n%s", len(seen), strings.Join(rows, "\n"))
 		case seaweedCells(rows) != weed:
 			h.t.Fatalf("frame %d: the Fish covers seaweed:\n%s", len(seen), strings.Join(rows, "\n"))
-		case s.tail != "><" && s.tail != ">-" && s.tail != "-<":
-			h.t.Fatalf("frame %d: the Fish's tail is %q:\n%s", len(seen), s.tail, strings.Join(rows, "\n"))
 		}
 		seen = append(seen, s)
 	}
@@ -345,9 +516,14 @@ func (h *harness) styleAt(col, row int) style {
 	if row < 0 || row >= len(rows) {
 		return style{}
 	}
+	return styleIn(rows[row], col)
+}
+
+// styleIn reads the style of the character at col in one row of the
+// coloured view, or the zero style if the row is shorter.
+func styleIn(s string, col int) style {
 	var cur style
 	n := 0
-	s := rows[row]
 	for i := 0; i < len(s); {
 		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
 			j := i + 2

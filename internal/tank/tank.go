@@ -43,8 +43,9 @@ type Fish struct {
 	// Col and Row are the top-left cell of its Body's box.
 	Col, Row   int
 	FacingLeft bool
-	// TailUp alternates as the tail swishes.
-	TailUp bool
+	// Tail is how far the tail has swished: it goes up and back down as
+	// this rises by 2.
+	Tail float64
 	// MouthOpen is set just before the Fish eats the Food it is going for.
 	MouthOpen bool
 	// Blinking is set while its eyes are shut.
@@ -427,7 +428,7 @@ func (t *Tank) Snapshot() Snapshot {
 			Col:        int(math.Round(f.x)),
 			Row:        int(t.fishRow()),
 			FacingLeft: f.facingLeft,
-			TailUp:     int(f.tail)%2 == 1,
+			Tail:       f.tail,
 			MouthOpen:  f.mouthOpen,
 		},
 	}

@@ -9,27 +9,40 @@ import (
 
 func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(30, 10)
+	h.resize(40, 10)
 
+	// The Fish starts in the middle of the water, its box 18 cells wide
+	// and 4 rows tall, leaving 11 cells either side of it in 40.
+	fish, ok := findFish(h.rawView())
+	if !ok || !fish.intact || fish.left != 11 || fish.top != 2 {
+		t.Fatalf("the Fish is at %+v, want whole with its box's top-left at (11, 2):\n%s", fish, h.screen())
+	}
 	want := []string{
 		"",
 		"",
-		"             .-~~-.",
-		"          ><(  ◕ ᴗ )",
-		"             `-..-'",
-		"                            {",
-		"                             }",
-		"                            {",
-		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
-		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
+		"",
+		"",
+		"",
+		"",
+		"                                       }",
+		"                                      {",
+		"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · • pellet",
 	}
 	got := h.view()
 	if len(got) != len(want) {
 		t.Fatalf("Tank has %d rows, want %d:\n%s", len(got), len(want), strings.Join(got, "\n"))
 	}
 	for i := range want {
-		if strings.TrimRight(got[i], " ") != want[i] {
-			t.Errorf("row %d = %q, want %q", i, got[i], want[i])
+		// Everything but the Fish.
+		row := cells(got[i])
+		for x, c := range row {
+			if isFishCell(c) {
+				row[x] = " "
+			}
+		}
+		if r := strings.TrimRight(strings.Join(row, ""), " "); r != want[i] {
+			t.Errorf("row %d = %q without the Fish, want %q", i, r, want[i])
 		}
 	}
 }

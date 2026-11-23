@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -41,27 +40,6 @@ func TestAgeTicksOverWhileTheTankIsOpen(t *testing.T) {
 	if status := strings.TrimSpace(got[len(got)-1]); ageShown(status) != "Age 1 day" {
 		t.Errorf("status line is %q after the Fish turned one day old", status)
 	}
-}
-
-func TestFishIsDrawnInItsColour(t *testing.T) {
-	h := newHarness(t, named("Bubbles"))
-	h.resize(40, 10)
-	colour := readSave(t, h.dataDir).Colour
-
-	var r, g, b int
-	if _, err := fmt.Sscanf(colour, "#%02x%02x%02x", &r, &g, &b); err != nil {
-		t.Fatalf("saved colour %q: %v", colour, err)
-	}
-	sgr := fmt.Sprintf("38;2;%d;%d;%d", r, g, b)
-	for _, row := range h.rawView() {
-		if strings.Contains(row, "◕") {
-			if !strings.Contains(row, sgr) {
-				t.Errorf("the Fish's face row is not drawn in %s: %q", colour, row)
-			}
-			return
-		}
-	}
-	t.Fatal("no Fish in the Tank")
 }
 
 // ageShown is the "Age N days" item on a status line, or "" if there is none.

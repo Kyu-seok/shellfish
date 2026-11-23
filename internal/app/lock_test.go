@@ -69,7 +69,7 @@ func TestLaunchSucceedsAfterTheFirstTankQuits(t *testing.T) {
 			if strings.Contains(screen, "already swimming") || again.exitStatus() != 0 {
 				t.Errorf("a launch after quitting with %s was refused:\n%s", key, screen)
 			}
-			if !strings.Contains(screen, "◕") {
+			if !showsFish(screen) {
 				t.Errorf("a launch after quitting with %s does not show the Fish:\n%s", key, screen)
 			}
 		})

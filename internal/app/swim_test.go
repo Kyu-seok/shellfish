@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -134,11 +135,12 @@ func TestTailSwishesFasterWhenSwimmingFaster(t *testing.T) {
 		h.resize(80, 24)
 		seen := h.watch(3 * time.Minute)
 
-		var still, fast []int // tail flips per window
+		turned := swings(seen)
+		var still, fast []int // times the tail turned back per window
 		for i := window; i < len(seen); i += window {
 			flips := 0
 			for j := i - window + 1; j <= i; j++ {
-				if seen[j].tail != seen[j-1].tail && seen[j].facingLeft == seen[j-1].facingLeft {
+				if turned[j] {
 					flips++
 				}
 			}
@@ -152,10 +154,38 @@ func TestTailSwishesFasterWhenSwimmingFaster(t *testing.T) {
 		if len(still) == 0 || len(fast) == 0 {
 			t.Fatalf("seed %d: saw %d still and %d fast half-seconds", seed, len(still), len(fast))
 		}
-		if s, f := mean(still), mean(fast); f < 2*s {
-			t.Errorf("seed %d: the tail flips %.1f times per half-second swimming fast, %.1f when still", seed, f, s)
+		if s, f := mean(still), mean(fast); f == 0 || f < 2*s {
+			t.Errorf("seed %d: the tail swings back %.1f times per half-second swimming fast, %.1f when still", seed, f, s)
 		}
 	}
+}
+
+// swing is how far, in pixel rows, the tail must swing back from its
+// furthest to count as turning back, rather than shimmering where pixels
+// round one way or the other.
+const swing = 0.4
+
+// swings marks the frames where the tail turned back from a swing up or
+// down, starting afresh whenever the Fish turns around.
+func swings(seen []sighting) []bool {
+	turned := make([]bool, len(seen))
+	var far float64 // the furthest the tail has swung this way, or where it started
+	dir := 0.0      // which way it is swinging: up -1, down 1, or 0 not yet known
+	for i, s := range seen {
+		if i == 0 || s.facingLeft != seen[i-1].facingLeft {
+			far, dir = s.tailLift, 0
+			continue
+		}
+		d := s.tailLift - far
+		switch {
+		case dir != 0 && d*dir > 0:
+			far = s.tailLift // further the same way
+		case math.Abs(d) >= swing:
+			turned[i] = dir != 0
+			far, dir = s.tailLift, math.Copysign(1, d)
+		}
+	}
+	return turned
 }
 
 func mean(ns []int) float64 {
@@ -177,7 +207,7 @@ func TestResizingKeepsTheFishInsideTheTank(t *testing.T) {
 			h.watch(time.Duration(1+round%4) * 2 * time.Second)
 			size := sizes[round%len(sizes)]
 			h.resize(size.w, size.h)
-			if s, ok := findFish(h.view()); !ok || !s.intact || s.top+3 > floorRow(h.view()) {
+			if s, ok := findFish(h.rawView()); !ok || !s.intact || s.top+body.Height > floorRow(h.view()) {
 				t.Fatalf("seed %d: after resizing to %dx%d the Fish is outside the Tank:\n%s",
 					seed, size.w, size.h, strings.Join(h.view(), "\n"))
 			}

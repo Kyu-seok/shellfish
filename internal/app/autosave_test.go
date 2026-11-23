@@ -90,7 +90,7 @@ func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
 	unblock := h.blockSaves()
 
 	h.advance(time.Minute)
-	if h.quitRequested() || !strings.Contains(h.screen(), contentFace) {
+	if h.quitRequested() || h.fishMood() != "Content" {
 		t.Fatalf("a failed save closed the Tank:\n%s", h.screen())
 	}
 	if !strings.Contains(h.statusLine(), "couldn't save") {
@@ -99,7 +99,7 @@ func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
 
 	h.clock.now = h.clock.now.Add(12 * time.Hour) // Hunger keeps rising
 	h.advance(time.Second)
-	if !strings.Contains(h.screen(), hungryFace) {
+	if h.fishMood() != "Hungry" {
 		t.Errorf("12 hours after a failed save the Fish is not Hungry:\n%s", h.screen())
 	}
 

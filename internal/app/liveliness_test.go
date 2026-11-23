@@ -43,7 +43,7 @@ const droopSettle = 4 * time.Second
 // its top can reach in any of seen. Its bob may lift it one row more.
 func checkLow(t *testing.T, h *harness, seen []sighting, about string) {
 	t.Helper()
-	lowestTop := floorRow(h.view()) - 3 // a Fish resting just above the sand
+	lowestTop := floorRow(h.view()) - body.Height // a Fish resting just above the sand
 	highest := int(math.Ceil(0.6*float64(lowestTop))) - 1
 	for i, s := range seen {
 		if s.top < highest {
@@ -116,7 +116,7 @@ func TestTheFishBlinksEveryFewSeconds(t *testing.T) {
 
 			var blinks []int // frames each blink started
 			for i, s := range seen {
-				if s.face == blinkFace && (i == 0 || seen[i-1].face != blinkFace) {
+				if s.blinking && (i == 0 || !seen[i-1].blinking) {
 					blinks = append(blinks, i)
 				}
 			}
@@ -147,7 +147,7 @@ func heartRow(rows []string) int {
 
 func TestAHeartFloatsUpAfterTheFishEats(t *testing.T) {
 	h := hungerAfter(t, 12*time.Hour) // Hungry, and still Hungry after a pellet
-	fish, ok := findFish(h.view())
+	fish, ok := findFish(h.rawView())
 	if !ok {
 		t.Fatalf("no Fish in the Tank:\n%s", h.screen())
 	}
@@ -218,9 +218,9 @@ func TestAContentFishShowsHeartsAndNotesNowAndThen(t *testing.T) {
 // what is behind it even where its drawing shows a space.
 func newBubbles(prev, cur []string) (n int, glyphs []string) {
 	floor := floorRow(cur)
-	fish, seen := findFish(prev)
+	minX, minY, maxX, maxY, seen := fishBounds(prev)
 	hidden := func(x, y int) bool {
-		return seen && x >= fish.left && x < fish.left+fishBoxWidth && y >= fish.top && y < fish.top+3
+		return seen && x >= minX && x <= maxX && y >= minY && y <= maxY
 	}
 	for y := 0; y < floor-1; y++ {
 		was, below, now := cells(prev[y]), cells(prev[y+1]), cells(cur[y])

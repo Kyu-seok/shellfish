@@ -153,7 +153,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		w, h := tankArea(msg.Width, msg.Height)
 		if m.tank == nil {
-			m.tank = tank.New(m.deps.Rand, w, h, render.PuffballBody)
+			m.tank = tank.New(m.deps.Rand, w, h, render.Clownfish.Body())
 		} else {
 			m.tank.Resize(w, h)
 		}
@@ -242,7 +242,7 @@ func (m Model) View() string {
 	}
 	sc := render.Scene{
 		Tank: m.tank.Snapshot(),
-		Look: render.Look{Mood: m.fish.Mood(), Colour: m.fish.Colour, Monochrome: m.deps.Monochrome},
+		Look: render.Look{Art: render.Clownfish, Mood: m.fish.Mood(), Monochrome: m.deps.Monochrome},
 		Status: render.Status{
 			Name:       m.fish.Name,
 			Hunger:     m.fish.Hunger,

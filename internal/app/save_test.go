@@ -98,7 +98,7 @@ func TestLaterLaunchLoadsTheSameFish(t *testing.T) {
 	if strings.Contains(screen, "What is your Fish called?") {
 		t.Fatalf("a later launch asked for a name again:\n%s", screen)
 	}
-	if !strings.Contains(screen, "Bubbles") || !strings.Contains(screen, "◕") {
+	if !strings.Contains(screen, "Bubbles") || !showsFish(screen) {
 		t.Errorf("a later launch does not show Bubbles in the Tank:\n%s", screen)
 	}
 	if got := readSave(t, first.dataDir); got.Colour != saved.Colour || !got.Born.Equal(saved.Born) {

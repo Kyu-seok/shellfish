@@ -101,10 +101,10 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 	row := t.fishRow()
 	if d.puffIn -= s; d.puffIn <= 0 {
 		d.puffIn = d.between(PuffMin, PuffMax)
-		// Just in front of its mouth.
-		x := f.x + t.mouthCol(f.facingLeft) + 1
+		// Level with its mouth, just in front of its box.
+		x := f.x + float64(t.body.Width)
 		if f.facingLeft {
-			x -= 2
+			x = f.x - 1
 		}
 		if !f.mouthOpen && x >= 0 && x < float64(t.width) {
 			y := row + float64(t.body.MouthRow)
@@ -128,10 +128,11 @@ func (t *Tank) flourish(col, row float64, kind FlourishKind) {
 }
 
 // ate celebrates a meal at col, row: a heart floats up from where the Fish
-// ate, and it opens its eyes wide rather than blink.
+// ate, starting clear of its drawing, and it opens its eyes wide rather than
+// blink.
 func (t *Tank) ate(m Meal) {
 	t.decor.blinking = 0
-	t.flourish(float64(m.Col), float64(m.Row-1), Heart)
+	t.flourish(float64(m.Col), min(float64(m.Row-1), t.fishRow()-1), Heart)
 }
 
 // fishRow is the row the top of the Fish is drawn at, bob included.

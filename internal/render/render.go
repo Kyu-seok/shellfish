@@ -15,19 +15,6 @@ import (
 
 const sand = '░'
 
-// faces is the Fish's face for each Mood, as it faces right.
-var faces = map[fish.Mood]string{
-	fish.Content:  "◕ ᴗ",
-	fish.Hungry:   "• _",
-	fish.Starving: "; ﹏",
-}
-
-// EatingFace is the Fish's face, whatever its Mood, just before it eats.
-const EatingFace = "◕ o"
-
-// BlinkFace is the Fish's face, whatever its Mood, while it blinks.
-const BlinkFace = "- ᴗ"
-
 // bubbleGlyphs are a bubble's sizes, smallest first.
 var bubbleGlyphs = [3]rune{'°', 'o', 'O'}
 
@@ -39,35 +26,14 @@ var flourishGlyphs = map[tank.FlourishKind]rune{
 
 // Look is how the Fish looks right now.
 type Look struct {
-	// Mood picks its face. The face gives way to EatingFace just before the
-	// Fish eats, then to BlinkFace while it blinks.
+	// Art is how the Fish is drawn.
+	Art Art
+	// Mood shows in its eye.
 	Mood fish.Mood
-	// Colour is the Fish's colour, unless Monochrome.
-	Colour fish.Colour
 	// Monochrome draws without colour, for NO_COLOR or a terminal with too
 	// few colours to show the Fish.
 	Monochrome bool
 }
-
-// PuffballBody is the box the puffball fits in, and where its mouth is.
-// Most faces make the drawing 10 cells wide; the box leaves room for a face
-// with a two-cell character. The mouth is the front of the face's bracket,
-// so the drawing's front edge whichever way it faces.
-var PuffballBody = tank.Body{Width: 11, Height: 3, MouthRow: 1, MouthRight: 9, MouthLeft: 0}
-
-// fishSprite is the puffball facing right, wearing face, with tail as its
-// first two characters. Spaces around the drawing are see-through. It fits in
-// PuffballBody.
-func fishSprite(face, tail string) [3]string {
-	return [3]string{
-		"   .-~~-. ",
-		tail + "(  " + face + " )",
-		"   `-..-' ",
-	}
-}
-
-// tails are the tail's two frames facing right. It swishes between them.
-var tails = [2]string{"><", ">-"}
 
 // Tank draws the Tank as rows of exactly s.Width cells: water, bubbles,
 // hearts and notes, seaweed, Food and the Fish above a sandy floor, each in
@@ -85,7 +51,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 		g.set(b.Col, b.Row, bubbleGlyphs[b.Size], plainInk)
 	}
 	for _, fl := range s.Flourishes {
-		in := fishInk
+		in := plainInk
 		if fl.Fading {
 			in = faintInk
 		}
@@ -108,60 +74,8 @@ func Tank(s tank.Snapshot, look Look) []string {
 		}
 		g.set(fd.Col, fd.Row, fd.Kind.Glyph(), in)
 	}
-	drawFish(g, s.Fish, face(s.Fish, faces[look.Mood]))
-	style := lipgloss.NewStyle()
-	if !look.Monochrome {
-		style = style.Foreground(lipgloss.Color(string(look.Colour)))
-	}
-	return g.rows(style)
-}
-
-// face is the face the Fish wears: eating comes first, then blinking, then
-// its Mood.
-func face(f tank.Fish, mood string) string {
-	switch {
-	case f.MouthOpen:
-		return EatingFace
-	case f.Blinking:
-		return BlinkFace
-	}
-	return mood
-}
-
-func drawFish(g grid, f tank.Fish, face string) {
-	tail := tails[0]
-	if f.TailUp {
-		tail = tails[1]
-	}
-	for i, line := range fishSprite(face, tail) {
-		if f.FacingLeft {
-			line = mirror(line)
-		}
-		// Spaces around the drawing are see-through; spaces inside it are not.
-		body := strings.TrimLeft(line, " ")
-		x := f.Col + len(line) - len(body)
-		for _, c := range strings.TrimRight(body, " ") {
-			g.set(x, f.Row+i, c, fishInk)
-			x += runeWidth(c)
-		}
-	}
-}
-
-// mirrored swaps characters for their left-right reflection.
-var mirrored = map[rune]rune{'(': ')', ')': '(', '<': '>', '>': '<', '`': '\'', '\'': '`'}
-
-// mirror flips a row of the drawing left to right.
-func mirror(s string) string {
-	r := []rune(s)
-	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
-	for i, c := range r {
-		if m, ok := mirrored[c]; ok {
-			r[i] = m
-		}
-	}
-	return string(r)
+	drawFish(g, look.Art, s.Fish, look.Mood, look.Monochrome)
+	return g.rows()
 }
 
 func runeWidth(c rune) int { return max(ansi.StringWidth(string(c)), 1) }
@@ -173,6 +87,8 @@ type grid [][]cell
 type cell struct {
 	c  rune // 0 for the second half of a two-cell character
 	in ink
+	// fg and bg are its colours as "#rrggbb", or "" for the terminal's own.
+	fg, bg string
 }
 
 // ink is how a cell is styled.
@@ -180,7 +96,6 @@ type ink int
 
 const (
 	plainInk ink = iota // plain
-	fishInk             // part of the Fish, drawn in its colour
 	faintInk            // fading away
 )
 
@@ -211,25 +126,63 @@ func (g grid) set(x, y int, c rune, in ink) {
 	}
 }
 
-// rows renders the grid, styling each run of Fish cells with fishStyle.
-func (g grid) rows(fishStyle lipgloss.Style) []string {
-	styles := map[ink]lipgloss.Style{fishInk: fishStyle, faintInk: faintStyle}
+// paint draws the one-cell character c at x, y in colours fg and bg,
+// clipping it if it is outside the grid.
+func (g grid) paint(x, y int, c rune, fg, bg string) {
+	if y >= 0 && y < len(g) && x >= 0 && x < len(g[y]) {
+		g[y][x] = cell{c: c, fg: fg, bg: bg}
+	}
+}
+
+// style is how c is drawn.
+func (c cell) style() (lipgloss.Style, bool) {
+	st := lipgloss.NewStyle()
+	if c.in == faintInk {
+		st = faintStyle
+	}
+	if c.fg != "" {
+		st = st.Foreground(lipgloss.Color(c.fg))
+	}
+	if c.bg != "" {
+		st = st.Background(lipgloss.Color(c.bg))
+	}
+	return st, c.in != plainInk || c.fg != "" || c.bg != ""
+}
+
+// rows renders the grid, styling each run of cells drawn alike.
+func (g grid) rows() []string {
+	// Styling is slow, so each style is worked out once a frame, around a
+	// stand-in for the text.
+	type key struct {
+		in     ink
+		fg, bg string
+	}
+	wraps := map[key][2]string{}
+	wrap := func(c cell) [2]string {
+		k := key{c.in, c.fg, c.bg}
+		w, ok := wraps[k]
+		if !ok {
+			if style, styled := c.style(); styled {
+				before, after, _ := strings.Cut(style.Render("\x00"), "\x00")
+				w = [2]string{before, after}
+			}
+			wraps[k] = w
+		}
+		return w
+	}
 	out := make([]string, len(g))
 	for y, row := range g {
 		var b strings.Builder
 		for x := 0; x < len(row); {
-			var run strings.Builder
+			w := wrap(row[x])
+			b.WriteString(w[0])
 			end := x
-			for ; end < len(row) && row[end].in == row[x].in; end++ {
+			for ; end < len(row) && row[end].in == row[x].in && row[end].fg == row[x].fg && row[end].bg == row[x].bg; end++ {
 				if row[end].c != 0 {
-					run.WriteRune(row[end].c)
+					b.WriteRune(row[end].c)
 				}
 			}
-			if style, ok := styles[row[x].in]; ok {
-				b.WriteString(style.Render(run.String()))
-			} else {
-				b.WriteString(run.String())
-			}
+			b.WriteString(w[1])
 			x = end
 		}
 		out[y] = b.String()

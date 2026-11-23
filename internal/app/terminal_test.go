@@ -22,7 +22,7 @@ func TestTooSmallWindowAsksForABiggerTank(t *testing.T) {
 		if !strings.Contains(words(screen), bigger) {
 			t.Errorf("%dx%d: no request for a bigger tank:\n%s", size.w, size.h, screen)
 		}
-		if strings.Contains(screen, "◕") || strings.Contains(screen, "░") {
+		if showsFish(h.screen()) || strings.Contains(screen, "░") {
 			t.Errorf("%dx%d: a broken Tank was drawn:\n%s", size.w, size.h, screen)
 		}
 	}
@@ -59,7 +59,7 @@ func TestTankReturnsAfterResizingAboveTheMinimum(t *testing.T) {
 	if strings.Contains(words(screen), bigger) {
 		t.Errorf("still asking for a bigger tank at 30x10:\n%s", screen)
 	}
-	if !strings.Contains(screen, "◕") {
+	if !showsFish(h.screen()) {
 		t.Errorf("the Tank did not come back:\n%s", screen)
 	}
 }
@@ -102,7 +102,7 @@ func TestMonochromeDrawsNoColour(t *testing.T) {
 		t.Errorf("monochrome Tank has colour escape codes: %q", raw)
 	}
 	screen := strings.Join(h.view(), "\n")
-	if !strings.Contains(screen, "◕") || !strings.Contains(screen, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days") {
+	if !showsFish(h.screen()) || !strings.Contains(screen, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days") {
 		t.Errorf("monochrome Tank is missing the Fish or status line:\n%s", screen)
 	}
 	h.press("q")

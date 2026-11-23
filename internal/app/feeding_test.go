@@ -3,6 +3,7 @@ package app_test
 import (
 	"math/rand/v2"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -175,7 +176,7 @@ func TestEatingNeverTakesHungerBelowFull(t *testing.T) {
 
 func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 	h := hungerAfter(t, 12*time.Hour) // Hungry
-	fish, ok := findFish(h.view())
+	fish, ok := findFish(h.rawView())
 	if !ok {
 		t.Fatalf("no Fish in the Tank:\n%s", h.screen())
 	}
@@ -186,31 +187,41 @@ func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 	}
 	h.click(col, 0)
 
-	_, frames := h.meal(30 * time.Second)
-	opened := -1
-	for i, frame := range frames {
-		if strings.Contains(frame, eatingFace) {
-			opened = i
+	// Frame by frame until the saved Hunger drops: until the Fish eats.
+	before := readSave(t, h.dataDir).Hunger
+	var open []bool // whether its mouth was open, each frame
+	for len(open) < int(30*time.Second/app.FrameInterval) && readSave(t, h.dataDir).Hunger >= before {
+		h.advance(app.FrameInterval)
+		s, _ := findFish(h.rawView())
+		open = append(open, s.eating)
+	}
+	if readSave(t, h.dataDir).Hunger >= before {
+		t.Fatalf("the Fish ate nothing in 30 seconds:\n%s", h.screen())
+	}
+	last := slices.Index(open, true)
+	for i, o := range open {
+		if o {
+			last = i
 		}
 	}
 	switch {
-	case opened < 0:
-		t.Errorf("the Fish never showed %q on its way to the Food", eatingFace)
-	case len(frames)-opened > 3:
-		t.Errorf("the Fish last showed %q %d frames before it ate, want just before", eatingFace, len(frames)-opened)
+	case last < 0:
+		t.Error("the Fish never opened its mouth on its way to the Food")
+	case len(open)-last > 3:
+		t.Errorf("the Fish last had its mouth open %d frames before it ate, want just before", len(open)-last)
 	}
-	if strings.Contains(frames[0], eatingFace) {
-		t.Errorf("the Fish opened its mouth as soon as the Food was dropped:\n%s", frames[0])
+	if open[0] {
+		t.Error("the Fish opened its mouth as soon as the Food was dropped")
 	}
 }
 
-func TestMoodAndFaceUpdateTheMomentTheFishEats(t *testing.T) {
+func TestMoodAndEyeUpdateTheMomentTheFishEats(t *testing.T) {
 	h := hungerAfter(t, 12*time.Hour) // Hungry
 	h.press("3")
 	h.press("f")
 
 	h.meal(30 * time.Second)
-	if fish, ok := findFish(h.view()); !ok || fish.face != contentFace {
+	if h.fishMood() != "Content" {
 		t.Errorf("right after a worm the Fish does not look Content:\n%s", h.screen())
 	}
 	if !strings.Contains(h.statusLine(), "Hunger ▱▱▱▱▱▱▱▱▱▱") {
@@ -353,14 +364,12 @@ func TestAHungryFishEatsFoodDroppedAnywhereSoon(t *testing.T) {
 func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
 	h := newHarness(t, named("Bubbles")) // Full, so the Food sinks past it
 	h.resize(80, 24)
-	fish, ok := findFish(h.view())
+	fish, ok := findFish(h.rawView())
 	if !ok {
 		t.Fatalf("no Fish to click on:\n%s", h.screen())
 	}
-	eyeCol, eyeRow := fish.left+5, fish.top+1
-	if fish.facingLeft {
-		eyeCol = fish.left + 4
-	}
+	x0, y0, _, _ := eyeArea(fish.facingLeft)
+	eyeCol, eyeRow := fish.left+x0, fish.top+y0
 	h.click(eyeCol, eyeRow)
 
 	for range int(15 * time.Second / app.FrameInterval) {

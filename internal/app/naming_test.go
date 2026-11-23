@@ -13,7 +13,7 @@ func TestFirstLaunchAsksForTheFishsName(t *testing.T) {
 	if !strings.Contains(screen, "What is your Fish called?") {
 		t.Fatalf("first launch shows no naming prompt:\n%s", screen)
 	}
-	if strings.Contains(screen, "◕") {
+	if showsFish(screen) {
 		t.Errorf("the Tank opened before the Fish was named:\n%s", screen)
 	}
 }
@@ -27,7 +27,7 @@ func TestNamingTheFishOpensTheTank(t *testing.T) {
 	if strings.Contains(screen, "What is your Fish called?") {
 		t.Fatalf("naming prompt is still shown:\n%s", screen)
 	}
-	if !strings.Contains(screen, "◕") {
+	if !showsFish(screen) {
 		t.Errorf("the Tank shows no Fish after naming:\n%s", screen)
 	}
 }
@@ -64,7 +64,7 @@ func TestEmptyOrBlankNameIsRejected(t *testing.T) {
 			}
 
 			h.nameFish("Bubbles")
-			if screen := strings.Join(h.view(), "\n"); !strings.Contains(screen, "◕") {
+			if screen := strings.Join(h.view(), "\n"); !showsFish(screen) {
 				t.Errorf("a real name after a rejected one did not open the Tank:\n%s", screen)
 			}
 		})
