@@ -136,9 +136,13 @@ func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 	if len([]rune(status))-len([]rune(strings.TrimRight(status, " "))) != 1 {
 		t.Errorf("key hint is not at the right end of the status line: %q", status)
 	}
-	raw := h.rawView()
-	if !regexp.MustCompile(`\x1b\[([0-9]+;)*2(;[0-9]+)*m` + regexp.QuoteMeta(keyHint)).MatchString(raw[len(raw)-1]) {
-		t.Errorf("key hint is not faint: %q", raw[len(raw)-1])
+	row := len(got) - 1
+	hint := len([]rune(strings.TrimRight(status, " "))) - len([]rune(keyHint))
+	if !h.styleAt(hint, row).faint {
+		t.Errorf("key hint is not faint: %q", h.rawView()[row])
+	}
+	if h.styleAt(0, row).faint {
+		t.Errorf("the Fish's name is faint too: %q", h.rawView()[row])
 	}
 }
 

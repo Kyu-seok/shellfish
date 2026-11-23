@@ -1,13 +1,16 @@
 package app_test
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -325,6 +328,84 @@ func (h *harness) cellAt(col, row int) string {
 		return ""
 	}
 	return string(cells[col])
+}
+
+// style is how a cell is coloured: its foreground and background as
+// "#rrggbb" ("" for the terminal's default) and whether it is faint.
+type style struct {
+	fg, bg string
+	faint  bool
+}
+
+// styleAt reads the style of the character at col, row from the coloured
+// view, counting columns as cellAt does. It is the zero style outside the
+// window.
+func (h *harness) styleAt(col, row int) style {
+	rows := h.rawView()
+	if row < 0 || row >= len(rows) {
+		return style{}
+	}
+	var cur style
+	n := 0
+	s := rows[row]
+	for i := 0; i < len(s); {
+		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
+			j := i + 2
+			for j < len(s) && (s[j] < 0x40 || s[j] > 0x7e) {
+				j++
+			}
+			if j < len(s) && s[j] == 'm' {
+				cur = applySGR(cur, s[i+2:j])
+			}
+			i = j + 1
+			continue
+		}
+		_, size := utf8.DecodeRuneInString(s[i:])
+		if n == col {
+			return cur
+		}
+		n++
+		i += size
+	}
+	return style{}
+}
+
+// applySGR updates st by one Select Graphic Rendition sequence's
+// parameters, as a true-colour terminal reads them.
+func applySGR(st style, params string) style {
+	ps := strings.Split(params, ";")
+	if params == "" {
+		ps = []string{"0"}
+	}
+	for i := 0; i < len(ps); i++ {
+		switch ps[i] {
+		case "0":
+			st = style{}
+		case "2":
+			st.faint = true
+		case "22":
+			st.faint = false
+		case "39":
+			st.fg = ""
+		case "49":
+			st.bg = ""
+		case "38", "48":
+			if i+4 < len(ps) && ps[i+1] == "2" {
+				var rgb [3]int
+				for k := range rgb {
+					rgb[k], _ = strconv.Atoi(ps[i+2+k])
+				}
+				hex := fmt.Sprintf("#%02x%02x%02x", rgb[0], rgb[1], rgb[2])
+				if ps[i] == "38" {
+					st.fg = hex
+				} else {
+					st.bg = hex
+				}
+				i += 4
+			}
+		}
+	}
+	return st
 }
 
 // statusLine is the bottom row of the Tank, trimmed.
