@@ -40,26 +40,13 @@ func inMood(t *testing.T, mood string, opts ...option) *harness {
 const droopSettle = 4 * time.Second
 
 // checkLow fails the test if the Fish rises out of the lower 40% of the rows
-// its top can reach in any of seen. Its bob may lift it one row more. Over
-// seaweed it may rise as high as it must to clear it.
+// its top can reach in any of seen. Its bob may lift it one row more.
 func checkLow(t *testing.T, h *harness, seen []sighting, about string) {
 	t.Helper()
 	lowestTop := floorRow(h.view()) - body.Height // a Fish resting just above the sand
 	highest := int(math.Ceil(0.6*float64(lowestTop))) - 1
-	weed := map[int]bool{} // columns seaweed reaches as it sways
-	for _, p := range h.plants() {
-		weed[p.col-1], weed[p.col], weed[p.col+1] = true, true, true
-	}
-	over := func(s sighting) bool {
-		for x := s.left; x < s.left+body.Width; x++ {
-			if weed[x] {
-				return true
-			}
-		}
-		return false
-	}
 	for i, s := range seen {
-		if s.top < highest && !over(s) {
+		if s.top < highest {
 			t.Fatalf("%s, frame %d: a Starving Fish swam up to row %d, above the lower 40%% of the water (row %d):\n%s",
 				about, i, s.top, highest, h.screen())
 		}
