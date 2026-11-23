@@ -1,5 +1,7 @@
 package render
 
+import "github.com/Kyu-seok/shellfish/internal/tank"
+
 // Tuning numbers for drawing live here.
 
 // StatusRows is how many rows below the Tank the status line takes.
@@ -8,8 +10,10 @@ const StatusRows = 1
 // HungerMeterCells is how many cells wide the status line's Hunger meter is.
 const HungerMeterCells = 10
 
-// GreetingRow is the row of the Tank the welcome-back greeting starts on.
-const GreetingRow = 1
+// GreetingRow is the row of the Tank the welcome-back greeting starts on:
+// the row below the top row of water, so it never hides Food just dropped
+// there.
+const GreetingRow = tank.SurfaceRows + 1
 
 // TailSwing is how far, in half-rows, the tip of the Fish's tail swings up
 // and down as it swishes.

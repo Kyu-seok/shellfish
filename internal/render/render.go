@@ -34,14 +34,11 @@ type Look struct {
 	Monochrome bool
 }
 
-// Tank draws the Tank as rows of exactly s.Width cells: the surface, the
-// sandy floor, bubbles, hearts and notes, shells, seaweed, Food and the Fish,
-// each in front of the ones before it.
-func Tank(s tank.Snapshot, look Look) []string {
-	if s.Width <= 0 || s.Height <= 0 {
-		return nil
-	}
-	g := newGrid(s.Width, s.Height)
+// drawTank draws the Tank on a grid of s.Width by s.Height cells: the
+// surface, the sandy floor, bubbles, hearts and notes, shells, seaweed, Food
+// and the Fish, each in front of the ones before it.
+func drawTank(s tank.Snapshot, look Look) grid {
+	g := newGrid(max(s.Width, 0), max(s.Height, 0))
 	floor := s.Height - 1
 	drawSurface(g, s, look)
 	drawSand(g, s, look)
@@ -73,7 +70,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 		}
 	}
 	drawFish(g, look.Art, s.Fish, look.Mood, look.Monochrome)
-	return g.rows()
+	return g
 }
 
 // Seaweed colours.

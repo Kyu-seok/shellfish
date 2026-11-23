@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/Kyu-seok/shellfish/internal/app"
 )
 
 func TestHungerCatchesUpOnTimeAway(t *testing.T) {
@@ -23,7 +21,6 @@ func TestHungerCatchesUpOnTimeAway(t *testing.T) {
 			first := newHarness(t, named("Bubbles"))
 			h := first.reopen(tc.away)
 			h.resize(50, 12)
-			h.advance(app.GreetingDuration) // the greeting covers the top of the water
 
 			if got := h.fishMood(); got != tc.mood {
 				t.Errorf("after %v away the Fish's eye looks %q, want %q:\n%s", tc.away, got, tc.mood, h.screen())
@@ -53,7 +50,6 @@ func TestTheEyeShowsTheMoodBand(t *testing.T) {
 		first := newHarness(t, named("Bubbles"))
 		h := first.reopen(tc.away)
 		h.resize(50, 12)
-		h.advance(app.GreetingDuration) // the greeting covers the top of the water
 
 		if got := h.fishMood(); got != tc.mood {
 			t.Errorf("after %v away the Fish's eye looks %q, want %q:\n%s", tc.away, got, tc.mood, h.screen())

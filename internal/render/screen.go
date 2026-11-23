@@ -41,10 +41,11 @@ type Status struct {
 // Screen draws the open Tank as rows of exactly its width, with the
 // greeting over the water if it is up and the status line below.
 func Screen(sc Scene) string {
-	water := Tank(sc.Tank, sc.Look)
-	if len(water) > 0 && sc.Away > 0 {
-		drawGreeting(water[:len(water)-1], greeting(sc.Status.Name, sc.Away), sc.Tank.Width) // over the water, not the sand
+	g := drawTank(sc.Tank, sc.Look)
+	if sc.Away > 0 {
+		drawGreeting(g, greeting(sc.Status.Name, sc.Away))
 	}
+	water := g.rows()
 	bottom := statusLine(sc.Status, sc.Tank.Width)
 	if sc.Picking != fish.NoSpecies {
 		bottom = pickerLine(sc.Picking, sc.Tank.Width)
@@ -87,13 +88,29 @@ func count(n int, unit string) string {
 	return fmt.Sprintf("%d %s", n, unit)
 }
 
-// drawGreeting overlays text, centred and wrapped to fit, on the water rows
-// from GreetingRow down.
-func drawGreeting(water []string, text string, width int) {
-	lines := centre(strings.Split(ansi.Wordwrap(text, width-2, ""), "\n"), width)
+// drawGreeting draws text, centred and wrapped to fit, over the water from
+// GreetingRow down. Only the text's own cells are covered, and never the
+// sand.
+func drawGreeting(g grid, text string) {
+	if len(g) == 0 {
+		return
+	}
+	width := len(g[0])
+	lines := strings.Split(ansi.Wordwrap(text, width-2, ""), "\n")
+	blockW := 0
+	for _, l := range lines {
+		blockW = max(blockW, ansi.StringWidth(l))
+	}
+	left := max((width-blockW)/2, 0)
 	for i, line := range lines {
-		if y := GreetingRow + i; y < len(water) {
-			water[y] = line
+		y := GreetingRow + i
+		if y >= len(g)-1 { // the last row is the sand
+			break
+		}
+		x := left
+		for _, c := range line {
+			g.set(x, y, c, plainInk)
+			x += runeWidth(c)
 		}
 	}
 }

@@ -335,18 +335,8 @@ func TestTheGreetingDoesNotBlockFeeding(t *testing.T) {
 	if got := h.cellAt(2, 9); got != pellet {
 		t.Errorf("a click while greeting dropped %q at (2, 9), want a pellet:\n%s", got, h.screen())
 	}
-	// The greeting covers the top row of water: let the pellet sink into
-	// sight, but look for it every frame, as the hungry Fish may soon eat it.
-	seen := false
-	for range int(time.Second / app.FrameInterval) {
-		h.advance(app.FrameInterval)
-		if h.count(pellet) == 2 {
-			seen = true
-			break
-		}
-	}
-	if !seen {
-		t.Errorf("after a click and f while greeting the Tank never held 2 pellets:\n%s", h.screen())
+	if got := strings.Count(h.view()[waterTop], pellet); got != 1 {
+		t.Errorf("f while greeting put %d pellets on the top row of water, want 1:\n%s", got, h.screen())
 	}
 	if !strings.Contains(h.screen(), "missed you") {
 		t.Errorf("feeding dismissed the greeting:\n%s", h.screen())
