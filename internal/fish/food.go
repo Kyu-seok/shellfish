@@ -17,7 +17,7 @@ var FoodKinds = []FoodKind{Pellet, Flake, Worm}
 func (k FoodKind) String() string { return foodKinds[k].name }
 
 // Glyph is how Food of this kind is drawn.
-func (k FoodKind) Glyph() string { return foodKinds[k].glyph }
+func (k FoodKind) Glyph() rune { return foodKinds[k].glyph }
 
 // Value is how much eating Food of this kind lowers Hunger.
 func (k FoodKind) Value() float64 { return foodKinds[k].value }

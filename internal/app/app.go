@@ -4,16 +4,11 @@ package app
 
 import (
 	"errors"
-	"fmt"
-	"math"
 	"math/rand/v2"
 	"slices"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/Kyu-seok/shellfish/internal/fish"
 	"github.com/Kyu-seok/shellfish/internal/render"
@@ -56,7 +51,7 @@ type Model struct {
 	lastSaved     time.Time // when the Fish was last written to the data folder
 	lock          *store.Lock
 	refusal       string        // why this launch was refused, if another Tank is open
-	greeting      string        // the welcome-back greeting, if the user was away a while
+	away          time.Duration // how long the user was away, if long enough to greet them
 	greetUntil    time.Time     // when the greeting goes away by itself
 	foodKind      fish.FoodKind // what a click or f drops
 	quitting      bool          // the user has closed the Tank
@@ -85,11 +80,20 @@ func New(deps Deps) Model {
 	case err != nil:
 		m.err = err
 	default:
-		m.greeting = greeting(f, m.now)
+		m.away = awayFor(f, m.now)
 		m.greetUntil = m.now.Add(GreetingDuration)
 		m.fish = f.CatchUp(m.now)
 	}
 	return m
+}
+
+// awayFor is how long the user was away from f at now, if it was more than
+// GreetAfter, so the Tank greets them; otherwise zero.
+func awayFor(f fish.Fish, now time.Time) time.Duration {
+	if away := now.Sub(f.LastSeen); !f.LastSeen.IsZero() && away > GreetAfter {
+		return away
+	}
+	return 0
 }
 
 // refusal is the message for a launch while another Tank is open.
@@ -196,21 +200,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// statusRows is how many rows below the Tank the status line takes.
-const statusRows = 1
-
 // tankArea is the part of a width×height window that the Tank fills. The
 // Tank is sized only through here, so rows the window keeps for anything else
 // are subtracted in this one place.
 func tankArea(width, height int) (w, h int) {
-	return width, max(height-statusRows, 0)
-}
-
-// faces is the Fish's face for each Mood.
-var faces = map[fish.Mood]string{
-	fish.Content:  "◕ ᴗ",
-	fish.Hungry:   "• _",
-	fish.Starving: "; ﹏",
+	return width, max(height-render.StatusRows, 0)
 }
 
 // tankShown reports whether the Tank is open and drawn, so Food can be
@@ -219,132 +213,36 @@ func (m Model) tankShown() bool {
 	return m.hasFish() && m.tank != nil && m.width >= MinTankWidth && m.height >= MinTankHeight
 }
 
-// View draws the Tank to fill the window, with the status line below it.
+// View draws the Tank to fill the window, with the status line below it,
+// or whatever takes its place.
 func (m Model) View() string {
-	if m.width <= 0 || m.height <= 0 {
+	switch {
+	case m.width <= 0 || m.height <= 0:
 		return ""
+	case m.refusal != "":
+		return render.Message(m.width, m.height, m.refusal)
+	case m.err != nil:
+		return render.Failure(m.width, m.height, m.err)
+	case m.naming:
+		return render.Naming(m.width, m.height, string(m.name), m.nameErr)
+	case m.width < MinTankWidth || m.height < MinTankHeight:
+		return render.TooSmall(m.width, m.height)
 	}
-	if m.refusal != "" {
-		return m.messageView(m.refusal)
+	sc := render.Scene{
+		Tank: m.tank.Snapshot(),
+		Look: render.Look{Mood: m.fish.Mood(), Colour: m.fish.Colour, Monochrome: m.deps.Monochrome},
+		Status: render.Status{
+			Name:       m.fish.Name,
+			Hunger:     m.fish.Hunger,
+			Age:        m.fish.Age(m.now),
+			Food:       m.foodKind,
+			SaveFailed: m.saveErr != nil,
+		},
 	}
-	if m.err != nil {
-		return m.messageView("shellfish: "+m.err.Error(), "", "Press q to quit.")
+	if m.now.Before(m.greetUntil) {
+		sc.Away = m.away
 	}
-	if m.naming {
-		return m.namingView()
-	}
-	if m.width < MinTankWidth || m.height < MinTankHeight {
-		msg := ansi.Wordwrap("Make me a bigger tank 🐟", m.width, "")
-		return m.messageView(strings.Split(msg, "\n")...)
-	}
-	snap := m.tank.Snapshot()
-	look := render.Look{Face: faces[m.fish.Mood()]}
-	if !m.deps.Monochrome {
-		look.Colour = string(m.fish.Colour)
-	}
-	water := render.Tank(snap, look)
-	if len(water) > 0 {
-		m.drawGreeting(water[:len(water)-1]) // over the water, not the sand
-	}
-	rows := append(water, m.statusLine())
-	return strings.Join(rows, "\n")
-}
-
-// keyHint teaches the controls at the right end of the status line.
-const keyHint = "click/f feed · 1-3 food · q quit"
-
-// saveFailed takes the key hint's place while the Fish can't be saved.
-const saveFailed = "⚠ couldn't save"
-
-// hintStyle is faint, which is not a colour, so it is kept in monochrome.
-var hintStyle = lipgloss.NewStyle().Faint(true)
-
-// statusLine is exactly the window's width: the Fish's facts on the left and
-// a faint key hint at the right end, which makes way when there is no room.
-// The selected Food Kind, last of the facts, shrinks from its glyph and name
-// to its glyph alone before the hint makes way for it.
-func (m Model) statusLine() string {
-	glyph := render.FoodGlyph(m.foodKind)
-	named := glyph + " " + m.foodKind.String()
-	hint := hintStyle.Render(keyHint)
-	if m.saveErr != nil {
-		hint = saveFailed
-	}
-	for _, food := range []string{named, glyph} {
-		facts := m.statusFacts(food)
-		if gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(hint) - 1; gap >= 2 {
-			return facts + strings.Repeat(" ", gap) + hint + " "
-		}
-	}
-	return fit(m.statusFacts(named, glyph), m.width)
-}
-
-// statusFacts shows the Fish's name, then its Hunger meter, its Age and the
-// first of foods (ways of showing the selected Food Kind) that fits, each
-// only if it fits whole in the window's width, so it never ends in a
-// dangling "·".
-func (m Model) statusFacts(foods ...string) string {
-	days := m.fish.Age(m.now)
-	unit := "days"
-	if days == 1 {
-		unit = "day"
-	}
-	facts := " " + m.fish.Name
-	for _, item := range [][]string{
-		{"Hunger " + hungerMeter(m.fish.Hunger)},
-		{fmt.Sprintf("Age %d %s", days, unit)},
-		foods,
-	} {
-		for _, way := range item {
-			if next := facts + " · " + way; ansi.StringWidth(next) <= m.width {
-				facts = next
-				break
-			}
-		}
-	}
-	return facts
-}
-
-// hungerMeter draws Hunger as HungerMeterCells cells, filled from the left
-// as the Fish gets hungrier.
-func hungerMeter(hunger float64) string {
-	filled := int(math.Round(hunger / fish.MaxHunger * HungerMeterCells))
-	filled = min(max(filled, 0), HungerMeterCells)
-	return strings.Repeat("▰", filled) + strings.Repeat("▱", HungerMeterCells-filled)
-}
-
-// fit pads or truncates s to exactly w cells.
-func fit(s string, w int) string {
-	s = ansi.Truncate(s, w, "")
-	return s + strings.Repeat(" ", w-ansi.StringWidth(s))
-}
-
-// namingView is the first-launch prompt asking what the Fish is called.
-func (m Model) namingView() string {
-	lines := []string{"What is your Fish called?", "", "> " + string(m.name)}
-	if m.nameErr != nil {
-		lines = append(lines, "", "Your Fish needs a name.")
-	}
-	return m.messageView(lines...)
-}
-
-// messageView centres a block of lines in the window, sharing one left edge.
-func (m Model) messageView(lines ...string) string {
-	rows := make([]string, m.height)
-	top := max((m.height-len(lines))/2, 0)
-	blockW := 0
-	for _, l := range lines {
-		blockW = max(blockW, ansi.StringWidth(l))
-	}
-	left := strings.Repeat(" ", max((m.width-blockW)/2, 0))
-	for y := range rows {
-		row := ""
-		if i := y - top; i >= 0 && i < len(lines) {
-			row = left + lines[i]
-		}
-		rows[y] = fit(row, m.width)
-	}
-	return strings.Join(rows, "\n")
+	return render.Screen(sc)
 }
 
 // updateNaming handles a key on the naming prompt. Letters (q included) go

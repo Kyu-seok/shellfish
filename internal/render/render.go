@@ -1,4 +1,6 @@
-// Package render draws a snapshot of the Tank as screen text.
+// Package render draws everything shellfish shows: the Tank from a snapshot,
+// the status line below it, the welcome-back greeting, and the naming prompt
+// and other messages that take the Tank's place.
 package render
 
 import (
@@ -13,15 +15,12 @@ import (
 
 const sand = '░'
 
-// foodGlyphs is how each Food Kind is drawn.
-var foodGlyphs = map[fish.FoodKind]rune{
-	fish.Pellet: '•',
-	fish.Flake:  '*',
-	fish.Worm:   'ʃ',
+// faces is the Fish's face for each Mood, as it faces right.
+var faces = map[fish.Mood]string{
+	fish.Content:  "◕ ᴗ",
+	fish.Hungry:   "• _",
+	fish.Starving: "; ﹏",
 }
-
-// FoodGlyph is how Food of kind k is drawn, so it can be shown elsewhere.
-func FoodGlyph(k fish.FoodKind) string { return string(foodGlyphs[k]) }
 
 // EatingFace is the Fish's face, whatever its Mood, just before it eats.
 const EatingFace = "◕ o"
@@ -40,13 +39,14 @@ var flourishGlyphs = map[tank.FlourishKind]rune{
 
 // Look is how the Fish looks right now.
 type Look struct {
-	// Face is its eye and mouth for its Mood as it faces right, such as
-	// "◕ ᴗ". It gives way to EatingFace just before the Fish eats, then to
-	// BlinkFace while it blinks.
-	Face string
-	// Colour is the Fish's colour, such as "#FFB3BA". Empty draws it
-	// without colour.
-	Colour string
+	// Mood picks its face. The face gives way to EatingFace just before the
+	// Fish eats, then to BlinkFace while it blinks.
+	Mood fish.Mood
+	// Colour is the Fish's colour, unless Monochrome.
+	Colour fish.Colour
+	// Monochrome draws without colour, for NO_COLOR or a terminal with too
+	// few colours to show the Fish.
+	Monochrome bool
 }
 
 // fishSprite is the puffball facing right, wearing face, with tail as its
@@ -100,12 +100,12 @@ func Tank(s tank.Snapshot, look Look) []string {
 		if fd.Fading {
 			in = faintInk
 		}
-		g.set(fd.Col, fd.Row, foodGlyphs[fd.Kind], in)
+		g.set(fd.Col, fd.Row, fd.Kind.Glyph(), in)
 	}
-	drawFish(g, s.Fish, face(s.Fish, look.Face))
+	drawFish(g, s.Fish, face(s.Fish, faces[look.Mood]))
 	style := lipgloss.NewStyle()
-	if look.Colour != "" {
-		style = style.Foreground(lipgloss.Color(look.Colour))
+	if !look.Monochrome {
+		style = style.Foreground(lipgloss.Color(string(look.Colour)))
 	}
 	return g.rows(style)
 }
@@ -178,6 +178,8 @@ const (
 	faintInk            // fading away
 )
 
+// faintStyle is for things fading away and the key hint. Faint is not a
+// colour, so it is kept in monochrome.
 var faintStyle = lipgloss.NewStyle().Faint(true)
 
 func newGrid(w, h int) grid {

@@ -1,0 +1,196 @@
+package render
+
+import (
+	"fmt"
+	"math"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Kyu-seok/shellfish/internal/fish"
+	"github.com/Kyu-seok/shellfish/internal/tank"
+)
+
+// Scene is everything shown while the Tank is open.
+type Scene struct {
+	Tank   tank.Snapshot
+	Look   Look
+	Status Status
+	// Away is how long the user was away, while the Tank greets them for
+	// it. Zero shows no greeting.
+	Away time.Duration
+}
+
+// Status is what the status line shows.
+type Status struct {
+	Name   string
+	Hunger float64
+	Age    int // in whole Days
+	// Food is the selected Food Kind: what a click or f drops.
+	Food fish.FoodKind
+	// SaveFailed is set while the Fish can't be saved.
+	SaveFailed bool
+}
+
+// Screen draws the open Tank as rows of exactly its width, with the
+// greeting over the water if it is up and the status line below.
+func Screen(sc Scene) string {
+	water := Tank(sc.Tank, sc.Look)
+	if len(water) > 0 && sc.Away > 0 {
+		drawGreeting(water[:len(water)-1], greeting(sc.Status.Name, sc.Away), sc.Tank.Width) // over the water, not the sand
+	}
+	return strings.Join(append(water, statusLine(sc.Status, sc.Tank.Width)), "\n")
+}
+
+// greeting welcomes the user back to the Fish called name after away.
+func greeting(name string, away time.Duration) string {
+	return fmt.Sprintf("%s missed you! You were gone %s.", name, readable(away))
+}
+
+// readable is an absence in whole hours, or whole Days from a Day on.
+func readable(d time.Duration) string {
+	if d >= fish.Day {
+		return count(int(d/fish.Day), "day")
+	}
+	return count(int(d/time.Hour), "hour")
+}
+
+// count is n of unit, such as "1 day" or "3 days".
+func count(n int, unit string) string {
+	if n != 1 {
+		unit += "s"
+	}
+	return fmt.Sprintf("%d %s", n, unit)
+}
+
+// drawGreeting overlays text, centred and wrapped to fit, on the water rows
+// from GreetingRow down.
+func drawGreeting(water []string, text string, width int) {
+	lines := centre(strings.Split(ansi.Wordwrap(text, width-2, ""), "\n"), width)
+	for i, line := range lines {
+		if y := GreetingRow + i; y < len(water) {
+			water[y] = line
+		}
+	}
+}
+
+// keyHint teaches the controls at the right end of the status line.
+const keyHint = "click/f feed · 1-3 food · q quit"
+
+// saveFailed takes the key hint's place while the Fish can't be saved.
+const saveFailed = "⚠ couldn't save"
+
+// statusLine is exactly width cells: the Fish's facts on the left and a
+// faint key hint at the right end, which makes way when there is no room.
+// The selected Food Kind, last of the facts, shrinks from its glyph and name
+// to its glyph alone before the hint makes way for it.
+func statusLine(s Status, width int) string {
+	glyph := string(s.Food.Glyph())
+	named := glyph + " " + s.Food.String()
+	hint := faintStyle.Render(keyHint)
+	if s.SaveFailed {
+		hint = saveFailed
+	}
+	for _, food := range []string{named, glyph} {
+		facts := statusFacts(s, width, food)
+		if gap := width - ansi.StringWidth(facts) - ansi.StringWidth(hint) - 1; gap >= 2 {
+			return facts + strings.Repeat(" ", gap) + hint + " "
+		}
+	}
+	return fit(statusFacts(s, width, named, glyph), width)
+}
+
+// statusFacts shows the Fish's name, then its Hunger meter, its Age and the
+// first of foods (ways of showing the selected Food Kind) that fits, each
+// only if it fits whole in width, so it never ends in a dangling "·".
+func statusFacts(s Status, width int, foods ...string) string {
+	facts := " " + s.Name
+	for _, item := range [][]string{
+		{"Hunger " + hungerMeter(s.Hunger)},
+		{"Age " + count(s.Age, "day")},
+		foods,
+	} {
+		for _, way := range item {
+			if next := facts + " · " + way; ansi.StringWidth(next) <= width {
+				facts = next
+				break
+			}
+		}
+	}
+	return facts
+}
+
+// hungerMeter draws Hunger as HungerMeterCells cells, filled from the left
+// as the Fish gets hungrier.
+func hungerMeter(hunger float64) string {
+	filled := int(math.Round(hunger / fish.MaxHunger * HungerMeterCells))
+	filled = min(max(filled, 0), HungerMeterCells)
+	return strings.Repeat("▰", filled) + strings.Repeat("▱", HungerMeterCells-filled)
+}
+
+// Naming is the first-launch prompt asking what the Fish is called, showing
+// the name typed so far and why the last one was rejected, if it was.
+func Naming(width, height int, name string, rejected error) string {
+	lines := []string{"What is your Fish called?", "", "> " + name}
+	if rejected != nil {
+		lines = append(lines, "", sentence(rejected))
+	}
+	return Message(width, height, lines...)
+}
+
+// Failure says why the Tank can't be opened.
+func Failure(width, height int, err error) string {
+	return Message(width, height, "shellfish: "+err.Error(), "", "Press q to quit.")
+}
+
+// TooSmall asks for a bigger window, in place of a Tank that doesn't fit.
+func TooSmall(width, height int) string {
+	msg := ansi.Wordwrap("Make me a bigger tank 🐟", width, "")
+	return Message(width, height, strings.Split(msg, "\n")...)
+}
+
+// Message fills a width×height window with a block of lines centred in it.
+func Message(width, height int, lines ...string) string {
+	rows := make([]string, height)
+	for y := range rows {
+		rows[y] = fit("", width)
+	}
+	top := max((height-len(lines))/2, 0)
+	for i, line := range centre(lines, width) {
+		if y := top + i; y < height {
+			rows[y] = line
+		}
+	}
+	return strings.Join(rows, "\n")
+}
+
+// centre centres a block of lines in width cells, sharing one left edge,
+// each fitted to exactly width.
+func centre(lines []string, width int) []string {
+	blockW := 0
+	for _, l := range lines {
+		blockW = max(blockW, ansi.StringWidth(l))
+	}
+	left := strings.Repeat(" ", max((width-blockW)/2, 0))
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = fit(left+l, width)
+	}
+	return out
+}
+
+// fit pads or truncates s to exactly w cells.
+func fit(s string, w int) string {
+	s = ansi.Truncate(s, w, "")
+	return s + strings.Repeat(" ", w-ansi.StringWidth(s))
+}
+
+// sentence is err's message as a sentence: capitalised, with a full stop.
+func sentence(err error) string {
+	msg := err.Error()
+	r, size := utf8.DecodeRuneInString(msg)
+	return string(unicode.ToUpper(r)) + msg[size:] + "."
+}

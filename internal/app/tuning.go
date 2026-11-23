@@ -14,9 +14,6 @@ const (
 	MinTankHeight = 10
 )
 
-// HungerMeterCells is how many cells wide the status line's Hunger meter is.
-const HungerMeterCells = 10
-
 // SaveInterval is how often the Fish is saved while the Tank is open.
 const SaveInterval = time.Minute
 
