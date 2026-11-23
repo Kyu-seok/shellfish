@@ -81,6 +81,26 @@ func TestNumberKeysSelectTheFoodKind(t *testing.T) {
 	}
 }
 
+// A terminal hands over keys typed in quick succession as one message, so
+// tapping or holding a key must still act once per key.
+func TestKeysTypedQuicklyEachTakeEffect(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(100, 24)
+
+	h.press("3f")
+	if !strings.Contains(h.statusLine(), "· "+worm+" worm") {
+		t.Errorf("after typing 3f quickly the status line is %q, want the worm selected", h.statusLine())
+	}
+	if got := h.count(worm); got != 1 {
+		t.Errorf("after typing 3f quickly the Tank holds %d worms, want 1:\n%s", got, h.screen())
+	}
+
+	h.press("ff")
+	if got := h.count(worm); got != 3 {
+		t.Errorf("after typing ff quickly the Tank holds %d worms, want 3:\n%s", got, h.screen())
+	}
+}
+
 func TestPelletIsSelectedAtFirst(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)

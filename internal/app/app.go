@@ -186,6 +186,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.naming {
 			return m.updateNaming(msg)
 		}
+		// Keys typed in quick succession arrive as one message: act on each.
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 {
+			var model tea.Model = m
+			var cmd tea.Cmd
+			for _, r := range msg.Runes {
+				model, cmd = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					return model, cmd
+				}
+			}
+			return model, nil
+		}
 		switch key := msg.String(); key {
 		case "q", "esc", "ctrl+c":
 			return m.quit()
