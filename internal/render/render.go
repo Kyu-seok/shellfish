@@ -49,11 +49,17 @@ type Look struct {
 	Monochrome bool
 }
 
+// PuffballBody is the box the puffball fits in, and where its mouth is.
+// Most faces make the drawing 10 cells wide; the box leaves room for a face
+// with a two-cell character. The mouth is the front of the face's bracket,
+// so the drawing's front edge whichever way it faces.
+var PuffballBody = tank.Body{Width: 11, Height: 3, MouthRow: 1, MouthRight: 9, MouthLeft: 0}
+
 // fishSprite is the puffball facing right, wearing face, with tail as its
 // first two characters. Spaces around the drawing are see-through. It fits in
-// tank.FishWidth cells.
-func fishSprite(face, tail string) [tank.FishHeight]string {
-	return [tank.FishHeight]string{
+// PuffballBody.
+func fishSprite(face, tail string) [3]string {
+	return [3]string{
 		"   .-~~-. ",
 		tail + "(  " + face + " )",
 		"   `-..-' ",
