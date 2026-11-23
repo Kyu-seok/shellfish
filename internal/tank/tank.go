@@ -22,6 +22,8 @@ type Snapshot struct {
 	Bubbles       []Bubble
 	// Flourishes are the hearts and notes floating up from the Fish.
 	Flourishes []Flourish
+	// Shells are the columns of the shells resting on the sand.
+	Shells []int
 	// Clock is how many seconds the Tank has run, for Scenery that drifts.
 	Clock float64
 }
@@ -85,6 +87,7 @@ type Tank struct {
 	clock         float64 // seconds simulated
 	fish          swimmer
 	seaweed       []stalk
+	shells        []int // the columns of the shells resting on the sand
 	food          []food
 	mood          fish.Mood // how the Fish feels, which sets its energy
 	decor         decor
@@ -148,6 +151,7 @@ func New(r *rand.Rand, width, height int, body Body) *Tank {
 func (t *Tank) Resize(width, height int) {
 	t.width, t.height = width, height
 	t.growSeaweed()
+	t.placeShells()
 	t.keepFishInside()
 	t.trimDecor()
 	t.fish.mode, t.fish.timer, t.fish.chasing = hovering, 0, false

@@ -56,6 +56,9 @@ const (
 	SeaweedMaxHeight = 5
 	// SeaweedSwayPeriod is how long a stalk takes to sway one way and back.
 	SeaweedSwayPeriod = 1.6
+	// ShellClearance is the fewest columns of sand between a shell and a stalk,
+	// so a swaying kelp tip or a grass tuft never stands on a shell.
+	ShellClearance = 3
 	// FishClearance is the rows kept free above the tallest stalk so the Fish
 	// can always swim over it.
 	FishClearance = 2

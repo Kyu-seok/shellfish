@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kyu-seok/shellfish/internal/app"
 )
 
 // isWave reports whether row is the water's surface: a whole row of wave.
@@ -71,6 +73,39 @@ func TestTheFloorIsTexturedSandThatHoldsStill(t *testing.T) {
 	for i, rows := range frames {
 		if got := rows[len(rows)-2]; got != sand {
 			t.Fatalf("frame %d: the floor changed from %q to %q", i, sand, got)
+		}
+	}
+}
+
+func TestTwoShellsRestOnTheSandAndStayPut(t *testing.T) {
+	for seed := range uint64(3) {
+		h := newHarness(t, named("Bubbles"), withSeed(seed))
+		h.resize(80, 24)
+
+		rows := h.view()
+		above := floorRow(rows) - 1
+		where := map[string]int{}
+		for x, c := range cells(rows[above]) {
+			if c == "@" || c == "Ѡ" {
+				if _, twice := where[c]; twice {
+					t.Fatalf("seed %d: more than one %q on the sand:\n%s", seed, c, h.screen())
+				}
+				where[c] = x
+			}
+		}
+		if len(where) != 2 {
+			t.Fatalf("seed %d: shells on the sand: %v, want one @ and one Ѡ:\n%s", seed, where, h.screen())
+		}
+		for i := range int(20 * time.Second / app.FrameInterval) {
+			h.advance(app.FrameInterval)
+			rows := h.view()
+			fish, seen := findFish(rows)
+			for shell, x := range where {
+				hidden := seen && x >= fish.left && x < fish.left+fishBoxWidth && above >= fish.top && above < fish.top+3
+				if got := cells(rows[above])[x]; got != shell && !hidden {
+					t.Fatalf("seed %d frame %d: the %q shell at column %d is gone:\n%s", seed, i, shell, x, strings.Join(rows, "\n"))
+				}
+			}
 		}
 	}
 }

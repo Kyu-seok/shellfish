@@ -19,8 +19,8 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 		"             `-..-'",
 		"                            {",
 		"                             }",
-		"                            {",
-		"", // the sand
+		"              @         Ѡ   {", // shells on the sand
+		"",                              // the sand
 		" Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱",
 	}
 	got := h.view()

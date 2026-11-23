@@ -67,9 +67,9 @@ func fishSprite(face, tail string) [3]string {
 // tails are the tail's two frames facing right. It swishes between them.
 var tails = [2]string{"><", ">-"}
 
-// Tank draws the Tank as rows of exactly s.Width cells: water, bubbles,
-// hearts and notes, seaweed, Food and the Fish above a sandy floor, each in
-// front of the ones before it.
+// Tank draws the Tank as rows of exactly s.Width cells: the surface, the
+// sandy floor, bubbles, hearts and notes, shells, seaweed, Food and the Fish,
+// each in front of the ones before it.
 func Tank(s tank.Snapshot, look Look) []string {
 	if s.Width <= 0 || s.Height <= 0 {
 		return nil
@@ -88,6 +88,7 @@ func Tank(s tank.Snapshot, look Look) []string {
 		}
 		g.set(fl.Col, fl.Row, flourishGlyphs[fl.Kind], in)
 	}
+	drawShells(g, s, look)
 	for _, st := range s.Seaweed {
 		for i := range st.Height {
 			// Alternate rows lean left and right, and swap as it sways.

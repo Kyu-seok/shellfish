@@ -12,6 +12,7 @@ const (
 	sandColour    = "#C2A878"
 	darkSand      = "#9C8460"
 	pebbleColour  = "#8E8E8E"
+	shellColour   = "#F4A6A6"
 )
 
 // drawSurface draws the top row as a slowly drifting wave line.
@@ -64,4 +65,18 @@ func grain(x int) uint32 {
 	h ^= h >> 4
 	h *= 0x27d4eb2d
 	return h ^ (h >> 15)
+}
+
+// shellGlyphs are how the shells resting on the sand are drawn, in turn.
+var shellGlyphs = []rune{'@', 'Ѡ'}
+
+// drawShells draws the shells resting on the sand.
+func drawShells(g grid, s tank.Snapshot, look Look) {
+	for i, x := range s.Shells {
+		c := shellGlyphs[i%len(shellGlyphs)]
+		g.set(x, s.Height-2, c, plainInk)
+		if !look.Monochrome {
+			g.colour(x, s.Height-2, shellColour)
+		}
+	}
 }
