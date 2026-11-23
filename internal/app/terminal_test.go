@@ -64,19 +64,25 @@ func TestTankReturnsAfterResizingAboveTheMinimum(t *testing.T) {
 	}
 }
 
-// Hunger is not built yet, so this checks the life carrying on through Age,
-// the most visible thing that advances with time today.
+// Hunger and Age both carry on advancing while the Tank can't be drawn.
 func TestLifeCarriesOnWhileTheWindowIsTooSmall(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
 	h.resize(20, 5)
-	h.advance(24 * time.Hour)
+	h.advance(12 * time.Hour)
 
 	if screen := strings.Join(h.view(), "\n"); !strings.Contains(words(screen), bigger) {
 		t.Fatalf("the Tank was drawn in a too-small window:\n%s", screen)
 	}
-	h.resize(40, 10)
+	h.resize(60, 10)
 	got := h.view()
-	if status := got[len(got)-1]; !strings.Contains(status, "Age 1 day") {
+	if status := got[len(got)-1]; !strings.Contains(status, "Hunger ▰▰▰▰▰▱▱▱▱▱") {
+		t.Errorf("after half a day in a too-small window Hunger has not advanced: %q", status)
+	}
+	h.resize(20, 5)
+	h.advance(12 * time.Hour)
+	h.resize(60, 10)
+	got = h.view()
+	if status := got[len(got)-1]; !strings.Contains(status, "Hunger ▰▰▰▰▰▰▰▰▰▰") || !strings.Contains(status, "Age 1 day") {
 		t.Errorf("after a day in a too-small window the status line is %q", status)
 	}
 	if h.quitRequested() {
@@ -96,7 +102,7 @@ func TestMonochromeDrawsNoColour(t *testing.T) {
 		t.Errorf("monochrome Tank has colour escape codes: %q", raw)
 	}
 	screen := strings.Join(h.view(), "\n")
-	if !strings.Contains(screen, "◕") || !strings.Contains(screen, "Bubbles · Age 0 days") {
+	if !strings.Contains(screen, "◕") || !strings.Contains(screen, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days") {
 		t.Errorf("monochrome Tank is missing the Fish or status line:\n%s", screen)
 	}
 	h.press("q")
@@ -138,10 +144,18 @@ func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 
 func TestKeyHintMakesWayInANarrowTank(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(40, 10)
-
-	got := h.view()
-	if status := strings.TrimSpace(got[len(got)-1]); status != "Bubbles · Age 0 days" {
-		t.Errorf("status line is %q, want the name and Age without a clipped hint", status)
+	for _, tc := range []struct {
+		width int
+		want  string
+	}{
+		{50, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days"},
+		{40, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱"},
+		{30, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱"},
+	} {
+		h.resize(tc.width, 10)
+		got := h.view()
+		if status := strings.TrimSpace(got[len(got)-1]); status != tc.want {
+			t.Errorf("%d wide: status line is %q, want %q without a clipped hint or a dangling ·", tc.width, status, tc.want)
+		}
 	}
 }
