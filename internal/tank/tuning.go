@@ -81,6 +81,15 @@ const (
 	TailRatePerSpeed = 0.8
 )
 
+// shellSpots are where the shells rest on the sand: num/den of the way
+// across the Tank, then nudge columns further. One is about a third of the
+// way across and the other about three quarters.
+var shellSpots = []struct{ num, den, nudge int }{{1, 3, 4}, {3, 4, 2}}
+
+// highestFish is the highest the top of the Fish's box goes, so that its bob
+// never takes it into the surface.
+const highestFish = SurfaceRows + BobAmplitude
+
 // Food.
 const (
 	// MaxFood is the most Food the Tank holds at once. Extra drops are ignored.

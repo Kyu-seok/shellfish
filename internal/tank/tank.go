@@ -88,19 +88,6 @@ type Meal struct {
 	Col, Row int
 }
 
-// Stalk is one clump of seaweed growing up from the floor: a stalk of kelp
-// in the KelpWidth columns from KelpCol, and a short tuft of grass right
-// beside it in the TuftWidth columns from TuftCol. It sways within those
-// columns.
-type Stalk struct {
-	KelpCol, TuftCol int
-	// Height is how many rows the kelp stands, and Tuft how many the grass.
-	Height, Tuft int
-	// Sway is where the stalk is in its sway, in turns from 0 up to 1. It
-	// moves on continuously.
-	Sway float64
-}
-
 // Tank is the running simulation.
 type Tank struct {
 	rand          *rand.Rand
@@ -120,43 +107,6 @@ type food struct {
 	kind   fish.FoodKind
 	landed bool
 	rested float64 // seconds spent resting on the floor
-}
-
-type stalk struct {
-	col          int     // the first of the SeaweedWidth columns it stands in
-	height, tuft int     // the kelp's height and the grass's, in rows
-	tuftLeft     bool    // the grass is left of the kelp, not right
-	phase        float64 // where in its sway it starts, in turns
-}
-
-// kelpCol and tuftCol are the first columns the kelp and the grass stand in.
-func (st stalk) kelpCol() int {
-	if st.tuftLeft {
-		return st.col + TuftWidth
-	}
-	return st.col
-}
-
-func (st stalk) tuftCol() int {
-	if st.tuftLeft {
-		return st.col
-	}
-	return st.col + KelpWidth
-}
-
-// heightIn is how high the stalk stands in the columns from c0 to c1: the
-// kelp's height over its columns, the tuft's over the grass's, and 0 if the
-// stalk stands in none of them.
-func (st stalk) heightIn(c0, c1 int) int {
-	over := func(col, width int) bool { return c0 < col+width && c1 >= col }
-	h := 0
-	if over(st.kelpCol(), KelpWidth) {
-		h = st.height
-	}
-	if over(st.tuftCol(), TuftWidth) {
-		h = max(h, st.tuft)
-	}
-	return h
 }
 
 // mode is what the Fish is doing.
@@ -186,6 +136,12 @@ type swimmer struct {
 	mouthOpen bool
 }
 
+// settle stops the Fish where it is, to hover before it picks somewhere new
+// to swim, as when the Tank around it changes.
+func (f *swimmer) settle() {
+	f.mode, f.timer, f.chasing = hovering, 0, false
+}
+
 // New fills a width×height Tank, the floor being its last row, with seaweed
 // and a Fish with body in the middle.
 func New(r *rand.Rand, width, height int, body Body) *Tank {
@@ -208,7 +164,7 @@ func (t *Tank) Resize(width, height int) {
 	t.placeShells()
 	t.keepFishInside()
 	t.trimDecor()
-	t.fish.mode, t.fish.timer, t.fish.chasing = hovering, 0, false
+	t.fish.settle()
 	t.food = slices.DeleteFunc(t.food, func(fd food) bool { return int(fd.x) >= t.width })
 	for i := range t.food {
 		fd := &t.food[i]
@@ -227,17 +183,13 @@ func (t *Tank) Reshape(b Body) {
 		return
 	}
 	t.body = b
-	tallest := 0
-	for _, st := range t.seaweed {
-		tallest = max(tallest, st.height)
-	}
-	if tallest > t.waterRows()-b.Height-FishClearance {
+	if t.tallestStalk() > t.waterRows()-b.Height-FishClearance {
 		t.growSeaweed()
 		t.placeShells()
 		t.trimDecor()
 	}
 	t.keepFishInside()
-	t.fish.mode, t.fish.timer, t.fish.chasing = hovering, 0, false
+	t.fish.settle()
 }
 
 // Drop puts Food of kind k into the Tank at the cell col, row. Food dropped
@@ -489,11 +441,7 @@ func (t *Tank) eat() []Meal {
 
 // aboveSeaweed is the lowest the Fish can be and still swim over every stalk.
 func (t *Tank) aboveSeaweed() float64 {
-	tallest := 0
-	for _, st := range t.seaweed {
-		tallest = max(tallest, st.height)
-	}
-	return max(float64(t.waterRows()-tallest-t.body.Height)-BobAmplitude, highestFish)
+	return max(float64(t.waterRows()-t.tallestStalk()-t.body.Height)-BobAmplitude, highestFish)
 }
 
 // Snapshot returns what the Tank looks like now.
@@ -519,15 +467,7 @@ func (t *Tank) Snapshot() Snapshot {
 			Fading: fd.rested >= FoodRestTime-FoodFadeTime,
 		})
 	}
-	for _, st := range t.seaweed {
-		snap.Seaweed = append(snap.Seaweed, Stalk{
-			KelpCol: st.kelpCol(),
-			TuftCol: st.tuftCol(),
-			Height:  st.height,
-			Tuft:    st.tuft,
-			Sway:    math.Mod(t.clock/SeaweedSwayPeriod+st.phase, 1),
-		})
-	}
+	t.snapshotScenery(&snap)
 	t.snapshotDecor(&snap)
 	return snap
 }
@@ -706,62 +646,7 @@ func (t *Tank) keepFishInside() {
 	f.vx, f.vy = 0, 0
 }
 
-// growSeaweed plants stalks along the floor, never so tall that the Fish
-// can't swim over them, and with at least SeaweedGap columns of floor between
-// them so the Fish can reach Food resting anywhere.
-func (t *Tank) growSeaweed() {
-	t.seaweed = t.seaweed[:0]
-	tallest := min(SeaweedMaxHeight, t.waterRows()-t.body.Height-FishClearance)
-	if tallest < 1 || t.width < SeaweedGap+SeaweedWidth {
-		return
-	}
-	shortest := min(SeaweedMinHeight, tallest)
-	// gaps are the empty columns before each stalk, and after the last one.
-	var gaps []int
-	if n := (t.width - SeaweedGap) / (SeaweedGap + SeaweedWidth); n > 0 {
-		gaps = make([]int, n+1)
-		for i := range gaps {
-			gaps[i] = SeaweedGap
-		}
-	} else {
-		// No room for gaps on both sides: one stalk stands against a wall.
-		gaps = []int{0, SeaweedGap}
-		if t.rand.IntN(2) == 0 {
-			gaps = []int{SeaweedGap, 0}
-		}
-	}
-	spare := t.width - SeaweedWidth*(len(gaps)-1)
-	for _, gap := range gaps {
-		spare -= gap
-	}
-	for ; spare > 0; spare-- {
-		i := t.rand.IntN(len(gaps))
-		if gaps[i] == 0 { // a stalk against the wall stays there
-			i = (i + 1) % len(gaps)
-		}
-		gaps[i]++
-	}
-	col := 0
-	for _, gap := range gaps[:len(gaps)-1] {
-		col += gap
-		t.seaweed = append(t.seaweed, stalk{
-			col:    col,
-			height: shortest + t.rand.IntN(tallest-shortest+1),
-			tuft:   min(GrassHeight, tallest),
-			// The grass faces the middle of the Tank, so the Fish has room
-			// to reach Food resting on it, even by a wall.
-			tuftLeft: 2*col+SeaweedWidth > t.width,
-			phase:    t.rand.Float64(),
-		})
-		col += SeaweedWidth
-	}
-}
-
 func clamp(v, lo, hi float64) float64 { return max(lo, min(v, hi)) }
 
 // between is a random number from lo up to hi.
 func between(r *rand.Rand, lo, hi float64) float64 { return lo + r.Float64()*(hi-lo) }
-
-// highestFish is the highest the top of the Fish's box goes, so that its bob
-// never takes it into the surface.
-const highestFish = SurfaceRows + BobAmplitude

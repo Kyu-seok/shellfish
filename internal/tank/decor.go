@@ -152,7 +152,6 @@ func (t *Tank) trimDecor() {
 func (t *Tank) snapshotDecor(snap *Snapshot) {
 	d := t.decor
 	snap.Fish.Blinking = d.blinking > 0
-	snap.Shells = slices.Clone(t.shells)
 	for _, b := range d.bubbles {
 		size := 0
 		switch risen := b.from - b.y; {
