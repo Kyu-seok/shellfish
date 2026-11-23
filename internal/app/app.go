@@ -33,6 +33,9 @@ type Deps struct {
 	Clock   Clock
 	Rand    *rand.Rand
 	DataDir string
+	// Monochrome draws without colour, for NO_COLOR or a terminal with too
+	// few colours to show the Fish.
+	Monochrome bool
 }
 
 // Model is the running app.
@@ -106,6 +109,10 @@ func (m Model) View() string {
 	if m.naming {
 		return m.namingView()
 	}
+	if m.width < MinTankWidth || m.height < MinTankHeight {
+		msg := ansi.Wordwrap("Make me a bigger tank 🐟", m.width, "")
+		return m.messageView(strings.Split(msg, "\n")...)
+	}
 	rows := make([]string, m.height)
 	statusRow := m.height - 1
 	floorRow := statusRow - 1
@@ -114,7 +121,10 @@ func (m Model) View() string {
 	for _, line := range fishSprite {
 		spriteW = max(spriteW, ansi.StringWidth(line))
 	}
-	body := lipgloss.NewStyle().Foreground(lipgloss.Color(m.fish.Colour))
+	body := lipgloss.NewStyle()
+	if !m.deps.Monochrome {
+		body = body.Foreground(lipgloss.Color(m.fish.Colour))
+	}
 	top := (floorRow - len(fishSprite)) / 2
 	left := max((m.width-spriteW)/2, 0)
 
@@ -126,12 +136,29 @@ func (m Model) View() string {
 		rows[y] = fit(row, m.width)
 	}
 	rows[floorRow] = strings.Repeat(sand, m.width)
-	rows[statusRow] = fit(m.statusLine(), m.width)
+	rows[statusRow] = m.statusLine()
 	return strings.Join(rows, "\n")
 }
 
-// statusLine shows the Fish's name and Age.
+// keyHint teaches the controls at the right end of the status line.
+const keyHint = "click/f feed · 1-3 food · q quit"
+
+// hintStyle is faint, which is not a colour, so it is kept in monochrome.
+var hintStyle = lipgloss.NewStyle().Faint(true)
+
+// statusLine is exactly the window's width: the Fish's facts on the left and
+// a faint key hint at the right end, which makes way when there is no room.
 func (m Model) statusLine() string {
+	facts := m.statusFacts()
+	gap := m.width - ansi.StringWidth(facts) - ansi.StringWidth(keyHint) - 1
+	if gap < 2 {
+		return fit(facts, m.width)
+	}
+	return facts + strings.Repeat(" ", gap) + hintStyle.Render(keyHint) + " "
+}
+
+// statusFacts shows the Fish's name and Age.
+func (m Model) statusFacts() string {
 	days := m.fish.Age(m.now)
 	unit := "days"
 	if days == 1 {

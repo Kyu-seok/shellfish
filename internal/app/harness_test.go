@@ -31,6 +31,7 @@ type harness struct {
 	t       *testing.T
 	clock   *fakeClock
 	dataDir string
+	mono    bool
 	model   tea.Model
 	last    tea.Cmd
 
@@ -48,6 +49,9 @@ func named(name string) option {
 	return func(h *harness) { h.afterLaunch = append(h.afterLaunch, func() { h.nameFish(name) }) }
 }
 
+// monochrome launches as on a terminal with NO_COLOR set or too few colours.
+func monochrome() option { return func(h *harness) { h.mono = true } }
+
 // at launches with the fake clock at t.
 func at(t time.Time) option { return func(h *harness) { h.clock.now = t } }
 
@@ -62,9 +66,10 @@ func newHarness(t *testing.T, opts ...option) *harness {
 		h.dataDir = t.TempDir()
 	}
 	m := app.New(app.Deps{
-		Clock:   h.clock,
-		Rand:    rand.New(rand.NewPCG(1, 2)),
-		DataDir: h.dataDir,
+		Clock:      h.clock,
+		Rand:       rand.New(rand.NewPCG(1, 2)),
+		DataDir:    h.dataDir,
+		Monochrome: h.mono,
 	})
 	h.model, h.last = m, m.Init()
 	for _, f := range h.afterLaunch {

@@ -6,3 +6,10 @@ import "time"
 
 // FrameInterval is the time between animation ticks (about 20 fps).
 const FrameInterval = 50 * time.Millisecond
+
+// MinTankWidth and MinTankHeight are the smallest window, in cells, that the
+// Tank is drawn in. Below either, the app asks for a bigger tank instead.
+const (
+	MinTankWidth  = 30
+	MinTankHeight = 10
+)

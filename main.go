@@ -10,6 +10,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/Kyu-seok/shellfish/internal/app"
 )
@@ -35,12 +37,19 @@ func run() error {
 		return err
 	}
 	m := app.New(app.Deps{
-		Clock:   realClock{},
-		Rand:    rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
-		DataDir: dir,
+		Clock:      realClock{},
+		Rand:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
+		DataDir:    dir,
+		Monochrome: monochrome(),
 	})
 	_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
 	return err
+}
+
+// monochrome reports whether to draw without colour: when NO_COLOR is set, or
+// the terminal shows fewer than 256 colours, too few for the pastel Fish.
+func monochrome() bool {
+	return os.Getenv("NO_COLOR") != "" || lipgloss.ColorProfile() > termenv.ANSI256
 }
 
 // dataDir is $XDG_DATA_HOME/shellfish, falling back to the platform's user
