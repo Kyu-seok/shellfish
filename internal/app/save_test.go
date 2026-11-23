@@ -21,6 +21,19 @@ type savedFish struct {
 	LastSeen      time.Time `json:"lastSeen"`
 }
 
+// dataFiles lists the data folder's entries, leaving out the lock file that
+// an open Tank holds.
+func dataFiles(dataDir string) []string {
+	entries, _ := os.ReadDir(dataDir)
+	var names []string
+	for _, e := range entries {
+		if e.Name() != "fish.lock" {
+			names = append(names, e.Name())
+		}
+	}
+	return names
+}
+
 func readSave(t *testing.T, dataDir string) savedFish {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(dataDir, "fish.json"))
@@ -57,9 +70,8 @@ func TestNamingSavesAFullFishWithAPastelColour(t *testing.T) {
 			t.Errorf("%s = %v, want the naming time %v", field, got, start)
 		}
 	}
-	entries, _ := os.ReadDir(h.dataDir)
-	if len(entries) != 1 {
-		t.Errorf("data folder holds %d entries, want only the save file (no leftover temporary file)", len(entries))
+	if files := dataFiles(h.dataDir); len(files) != 1 {
+		t.Errorf("data folder holds %v, want only the save file (no leftover temporary file)", files)
 	}
 }
 
@@ -77,6 +89,7 @@ func TestNamingCreatesAMissingDataFolder(t *testing.T) {
 func TestLaterLaunchLoadsTheSameFish(t *testing.T) {
 	first := newHarness(t, named("Bubbles"))
 	saved := readSave(t, first.dataDir)
+	first.press("q")
 
 	again := newHarness(t, withDataDir(first.dataDir), at(start.Add(time.Hour)))
 	again.resize(40, 10)

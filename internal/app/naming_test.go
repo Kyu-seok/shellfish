@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -60,8 +59,8 @@ func TestEmptyOrBlankNameIsRejected(t *testing.T) {
 			if !strings.Contains(screen, "Your Fish needs a name.") {
 				t.Errorf("no reason given for rejecting the name:\n%s", screen)
 			}
-			if entries, _ := os.ReadDir(h.dataDir); len(entries) != 0 {
-				t.Errorf("a blank name saved files: %v", entries)
+			if files := dataFiles(h.dataDir); len(files) != 0 {
+				t.Errorf("a blank name saved files: %v", files)
 			}
 
 			h.nameFish("Bubbles")

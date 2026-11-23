@@ -67,6 +67,7 @@ func newHarness(t *testing.T, opts ...option) *harness {
 		DataDir: h.dataDir,
 	})
 	h.model, h.last = m, m.Init()
+	t.Cleanup(func() { h.model.(app.Model).Close() })
 	for _, f := range h.afterLaunch {
 		f()
 	}
@@ -144,4 +145,10 @@ func (h *harness) quitRequested() bool {
 	}
 	_, ok := h.last().(tea.QuitMsg)
 	return ok
+}
+
+// exitStatus is the status the shellfish process would exit with once the
+// app quits, as main reads it.
+func (h *harness) exitStatus() int {
+	return h.model.(app.Model).ExitStatus()
 }
