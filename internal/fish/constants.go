@@ -14,19 +14,6 @@ const MinHunger = 0.0
 // MaxHunger is the highest Hunger a Fish can reach.
 const MaxHunger = 100.0
 
-// Colour is a Fish's colour, as a #rrggbb hex string.
-type Colour string
-
-// Palette is the small set of pastel colours a Fish can be born with.
-var Palette = []Colour{
-	"#FFB3BA", // pink
-	"#FFDFBA", // peach
-	"#FFFFBA", // lemon
-	"#BAFFC9", // mint
-	"#BAE1FF", // sky
-	"#D7BAFF", // lilac
-}
-
 // HungerPerDay is how much Hunger rises in a Day, open or closed.
 const HungerPerDay = 100.0
 

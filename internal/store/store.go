@@ -16,21 +16,26 @@ import (
 // FileName is the save file's name inside the data folder.
 const FileName = "fish.json"
 
-// schemaVersion is the save file format this build reads and writes.
-const schemaVersion = 1
+// schemaVersion is the save file format this build writes. Version 2 added
+// the Species and dropped the colour.
+const schemaVersion = 2
+
+// speciesless is the save file format from before Species existed, which
+// this build still reads, as a Fish with no Species yet.
+const speciesless = 1
 
 // ErrNoFish means the data folder holds no saved Fish: this is a first launch.
 var ErrNoFish = errors.New("no saved Fish")
 
 // saved is the save file's JSON shape.
 type saved struct {
-	Version       int         `json:"version"`
-	Name          string      `json:"name"`
-	Colour        fish.Colour `json:"colour"`
-	Born          time.Time   `json:"born"`
-	Hunger        float64     `json:"hunger"`
-	HungerUpdated time.Time   `json:"hungerUpdated"`
-	LastSeen      time.Time   `json:"lastSeen"`
+	Version       int       `json:"version"`
+	Name          string    `json:"name"`
+	Species       string    `json:"species,omitempty"` // by its stable name
+	Born          time.Time `json:"born"`
+	Hunger        float64   `json:"hunger"`
+	HungerUpdated time.Time `json:"hungerUpdated"`
+	LastSeen      time.Time `json:"lastSeen"`
 }
 
 // Load reads the saved Fish from dir. It returns ErrNoFish if there is none.
@@ -46,12 +51,20 @@ func Load(dir string) (fish.Fish, error) {
 	if err := json.Unmarshal(raw, &s); err != nil {
 		return fish.Fish{}, fmt.Errorf("reading saved Fish: %w", err)
 	}
-	if s.Version != schemaVersion {
+	species := fish.NoSpecies
+	switch s.Version {
+	case speciesless:
+	case schemaVersion:
+		var ok bool
+		if species, ok = fish.SpeciesNamed(s.Species); !ok {
+			return fish.Fish{}, fmt.Errorf("saved Fish is of unknown Species %q", s.Species)
+		}
+	default:
 		return fish.Fish{}, fmt.Errorf("saved Fish has schema version %d, this shellfish reads %d", s.Version, schemaVersion)
 	}
 	return fish.Fish{
 		Name:          s.Name,
-		Colour:        s.Colour,
+		Species:       species,
 		Born:          s.Born,
 		Hunger:        s.Hunger,
 		HungerUpdated: s.HungerUpdated,
@@ -66,7 +79,7 @@ func Save(dir string, f fish.Fish) error {
 	raw, err := json.MarshalIndent(saved{
 		Version:       schemaVersion,
 		Name:          f.Name,
-		Colour:        f.Colour,
+		Species:       f.Species.String(),
 		Born:          f.Born,
 		Hunger:        f.Hunger,
 		HungerUpdated: f.HungerUpdated,

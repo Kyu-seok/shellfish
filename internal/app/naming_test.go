@@ -5,22 +5,24 @@ import (
 	"testing"
 )
 
-func TestFirstLaunchAsksForTheFishsName(t *testing.T) {
+func TestChoosingASpeciesAsksForTheFishsName(t *testing.T) {
 	h := newHarness(t)
 	h.resize(40, 10)
+	h.press("enter")
 
 	screen := strings.Join(h.view(), "\n")
 	if !strings.Contains(screen, "What is your Fish called?") {
 		t.Fatalf("first launch shows no naming prompt:\n%s", screen)
 	}
 	if showsFish(screen) {
-		t.Errorf("the Tank opened before the Fish was named:\n%s", screen)
+		t.Errorf("the Tank is still shown on the naming prompt:\n%s", screen)
 	}
 }
 
 func TestNamingTheFishOpensTheTank(t *testing.T) {
 	h := newHarness(t)
 	h.resize(40, 10)
+	h.press("enter")
 	h.nameFish("Bubbles")
 
 	screen := strings.Join(h.view(), "\n")
@@ -35,6 +37,7 @@ func TestNamingTheFishOpensTheTank(t *testing.T) {
 func TestNamingPromptShowsWhatIsTyped(t *testing.T) {
 	h := newHarness(t)
 	h.resize(40, 10)
+	h.press("enter")
 	h.typeText("Bubbx")
 	h.press("backspace")
 	h.typeText("les")
@@ -50,6 +53,7 @@ func TestEmptyOrBlankNameIsRejected(t *testing.T) {
 		t.Run(strings.ReplaceAll(name, " ", "␠"), func(t *testing.T) {
 			h := newHarness(t)
 			h.resize(40, 10)
+			h.press("enter")
 			h.nameFish(name)
 
 			screen := strings.Join(h.view(), "\n")

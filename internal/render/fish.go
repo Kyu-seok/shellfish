@@ -21,11 +21,11 @@ const (
 const on = "on"
 
 // drawFish rasterises art into g as the Fish f looks right now.
-func drawFish(g grid, art Art, f tank.Fish, mood fish.Mood, mono bool) {
+func drawFish(g grid, art fish.Art, f tank.Fish, mood fish.Mood, mono bool) {
 	layers := slices.Concat(art.Layers, faceLayers(art, f, mood))
 	if mono {
 		// A silhouette, with the eye left clear so it still reads as a face.
-		layers = slices.Concat(art.Layers, []Layer{Fill("", Circle(art.Eye.X, art.Eye.Y, art.Eye.R))})
+		layers = slices.Concat(art.Layers, []fish.Layer{fish.Fill("", fish.Circle(art.Eye.X, art.Eye.Y, art.Eye.R))})
 	}
 	swish := TailSwing * math.Sin(math.Pi*f.Tail)
 	cols, rows := int(math.Ceil(art.W)), int(math.Ceil(art.H/2))
@@ -62,34 +62,36 @@ func drawFish(g grid, art Art, f tank.Fish, mood fish.Mood, mono bool) {
 
 // faceLayers are the eye and mouth, drawn over the body, for how the Fish
 // looks right now.
-func faceLayers(art Art, f tank.Fish, mood fish.Mood) []Layer {
+func faceLayers(art fish.Art, f tank.Fish, mood fish.Mood) []fish.Layer {
 	e := art.Eye
-	disc := Circle(e.X, e.Y, e.R)
-	var ls []Layer
+	disc := fish.Circle(e.X, e.Y, e.R)
+	var ls []fish.Layer
 	if f.MouthOpen {
-		ls = append(ls, Fill(MouthColour, Circle(art.MouthX, art.MouthY, MouthRadius)))
+		ls = append(ls, fish.Fill(MouthColour, fish.Circle(art.MouthX, art.MouthY, MouthRadius)))
 	}
 	if f.Blinking {
-		line := Rect(math.Inf(-1), e.Y-0.2, math.Inf(1), e.Y+0.25)
-		return append(ls, Fill(e.Lid, disc), Fill(e.Iris, Both(disc, line)))
+		line := fish.Rect(math.Inf(-1), e.Y-0.2, math.Inf(1), e.Y+0.25)
+		return append(ls, fish.Fill(e.Lid, disc), fish.Fill(e.Iris, fish.Both(disc, line)))
 	}
 	ix, iy := e.X+0.25*e.R, e.Y+0.05*e.R
 	if mood == fish.Starving {
 		iy += 0.25 * e.R
 	}
 	ls = append(ls,
-		Fill(e.White, disc),
-		Fill(e.Iris, Circle(ix, iy, 0.62*e.R)),
-		Fill(Highlight, Circle(ix-0.22*e.R, iy-0.25*e.R, 0.22*e.R)),
+		fish.Fill(e.White, disc),
+		fish.Fill(e.Iris, fish.Circle(ix, iy, 0.62*e.R)),
+		fish.Fill(Highlight, fish.Circle(ix-0.22*e.R, iy-0.25*e.R, 0.22*e.R)),
 	)
-	above := func(y float64) Shape { return Both(disc, Rect(math.Inf(-1), math.Inf(-1), math.Inf(1), y)) }
+	above := func(y float64) fish.Shape {
+		return fish.Both(disc, fish.Rect(math.Inf(-1), math.Inf(-1), math.Inf(1), y))
+	}
 	switch mood {
 	case fish.Hungry:
-		ls = append(ls, Fill(e.Lid, above(e.Y-0.15*e.R)))
+		ls = append(ls, fish.Fill(e.Lid, above(e.Y-0.15*e.R)))
 	case fish.Starving:
 		ls = append(ls,
-			Fill(e.Lid, above(e.Y+0.1*e.R)),
-			Fill(TearColour, Ellipse(e.X-0.2*e.R, e.Y+e.R+0.7, 0.32, 0.55)),
+			fish.Fill(e.Lid, above(e.Y+0.1*e.R)),
+			fish.Fill(TearColour, fish.Ellipse(e.X-0.2*e.R, e.Y+e.R+0.7, 0.32, 0.55)),
 		)
 	}
 	return ls
@@ -97,7 +99,7 @@ func faceLayers(art Art, f tank.Fish, mood fish.Mood) []Layer {
 
 // sample is the colour at x, y ("" for clear), with the tail swung by swish
 // half-rows at its tip.
-func sample(ls []Layer, x, y, swish, root float64) string {
+func sample(ls []fish.Layer, x, y, swish, root float64) string {
 	for i := len(ls) - 1; i >= 0; i-- {
 		l := ls[i]
 		sy := y

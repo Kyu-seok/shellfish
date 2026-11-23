@@ -78,11 +78,12 @@ func TestLaunchSucceedsAfterTheFirstTankQuits(t *testing.T) {
 
 func TestLaunchSucceedsAfterQuittingTheNamingPrompt(t *testing.T) {
 	first := newHarness(t)
+	first.press("enter") // choose a Species
 	first.press("esc")
 
 	again := newHarness(t, withDataDir(first.dataDir))
 	again.resize(60, 10)
-	if screen := strings.Join(again.view(), "\n"); !strings.Contains(screen, "What is your Fish called?") {
+	if screen := strings.Join(again.view(), "\n"); !strings.Contains(screen, "Species: ‹ Clownfish ›") {
 		t.Errorf("a launch after quitting the naming prompt was refused:\n%s", screen)
 	}
 }

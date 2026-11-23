@@ -41,6 +41,8 @@ type Model struct {
 	deps          Deps
 	width, height int
 	tank          *tank.Tank // nil until the window size is known
+	picking       bool       // the Species picker is up
+	pick          int        // which of fish.AllSpecies the picker shows
 	naming        bool
 	name          []rune // the name typed so far on the naming prompt
 	nameErr       error  // why the last name was rejected
@@ -58,7 +60,9 @@ type Model struct {
 }
 
 // New builds the app from its dependencies. It takes the data folder's lock,
-// then loads the saved Fish, or starts the naming flow if there is none. If
+// then loads the saved Fish, or starts the first-launch flow (Species picker,
+// then naming) if there is none. A Fish saved before Species existed is shown
+// the Species picker before its Tank opens. If
 // another Tank holds the lock, the launch is refused: see ExitStatus.
 func New(deps Deps) Model {
 	now := deps.Clock.Now()
@@ -76,15 +80,28 @@ func New(deps Deps) Model {
 	f, err := store.Load(deps.DataDir)
 	switch {
 	case errors.Is(err, store.ErrNoFish):
-		m.naming = true
+		m.picking = true
 	case err != nil:
 		m.err = err
 	default:
 		m.away = awayFor(f, m.now)
-		m.greetUntil = m.now.Add(GreetingDuration)
 		m.fish = f.CatchUp(m.now)
+		if f.Species == fish.NoSpecies {
+			m.picking = true // the greeting waits until the Tank opens
+		} else {
+			m.greetUntil = m.now.Add(GreetingDuration)
+		}
 	}
 	return m
+}
+
+// species is the Species drawn in the Tank: the one the picker shows while
+// it is up, and the Fish's own after.
+func (m Model) species() fish.Species {
+	if m.picking {
+		return fish.AllSpecies[m.pick]
+	}
+	return m.fish.Species
 }
 
 // awayFor is how long the user was away from f at now, if it was more than
@@ -153,7 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		w, h := tankArea(msg.Width, msg.Height)
 		if m.tank == nil {
-			m.tank = tank.New(m.deps.Rand, w, h, render.Clownfish.Body())
+			m.tank = tank.New(m.deps.Rand, w, h, tank.BodyOf(m.species()))
 		} else {
 			m.tank.Resize(w, h)
 		}
@@ -182,6 +199,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.refusal != "" {
 			return m, tea.Quit
+		}
+		if m.picking {
+			return m.updatePicking(msg)
 		}
 		if m.naming {
 			return m.updateNaming(msg)
@@ -242,7 +262,7 @@ func (m Model) View() string {
 	}
 	sc := render.Scene{
 		Tank: m.tank.Snapshot(),
-		Look: render.Look{Art: render.Clownfish, Mood: m.fish.Mood(), Monochrome: m.deps.Monochrome},
+		Look: render.Look{Art: m.species().Art(), Mood: m.fish.Mood(), Monochrome: m.deps.Monochrome},
 		Status: render.Status{
 			Name:       m.fish.Name,
 			Hunger:     m.fish.Hunger,
@@ -251,10 +271,45 @@ func (m Model) View() string {
 			SaveFailed: m.saveErr != nil,
 		},
 	}
+	if m.picking {
+		sc.Picking = m.species()
+	}
 	if m.now.Before(m.greetUntil) {
 		sc.Away = m.away
 	}
 	return render.Screen(sc)
+}
+
+// updatePicking handles a key on the Species picker: ←/→ browse, Enter
+// chooses, and Esc and Ctrl-C quit without saving. Other keys, q included,
+// do nothing.
+func (m Model) updatePicking(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	n := len(fish.AllSpecies)
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyCtrlC:
+		return m.quit()
+	case tea.KeyLeft:
+		m.pick = (m.pick + n - 1) % n
+	case tea.KeyRight:
+		m.pick = (m.pick + 1) % n
+	case tea.KeyEnter:
+		m.fish.Species, m.picking = m.species(), false
+		if m.fish.Name == "" {
+			m.naming = true // a new Fish is named next
+			return m, nil
+		}
+		// A Fish saved before Species existed opens its Tank now.
+		m.now = m.deps.Clock.Now()
+		m.greetUntil = m.now.Add(GreetingDuration)
+		m = m.save(m.now)
+		return m, nil
+	default:
+		return m, nil
+	}
+	if m.tank != nil {
+		m.tank.Reshape(tank.BodyOf(m.species()))
+	}
+	return m, nil
 }
 
 // updateNaming handles a key on the naming prompt. Letters (q included) go
@@ -264,7 +319,7 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		return m.quit()
 	case tea.KeyEnter:
-		f, err := fish.Hatch(string(m.name), m.deps.Clock.Now(), m.deps.Rand)
+		f, err := fish.Hatch(string(m.name), m.fish.Species, m.deps.Clock.Now())
 		if err != nil {
 			m.name, m.nameErr = nil, err
 			return m, nil
@@ -281,10 +336,10 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// hasFish reports whether a Fish is living in this Tank: it has been named and
+// hasFish reports whether a Fish is living in this Tank: it has a Species, has been named and
 // loaded without error, and this launch holds the lock. A refused launch has
 // no Fish of its own, so it never saves.
-func (m Model) hasFish() bool { return m.refusal == "" && !m.naming && m.err == nil }
+func (m Model) hasFish() bool { return m.refusal == "" && !m.picking && !m.naming && m.err == nil }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
 // and writes it to the data folder. A failed save leaves the Tank open, with

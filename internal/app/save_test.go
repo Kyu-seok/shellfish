@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +13,7 @@ import (
 type savedFish struct {
 	Version       int       `json:"version"`
 	Name          string    `json:"name"`
-	Colour        string    `json:"colour"`
+	Species       string    `json:"species"`
 	Born          time.Time `json:"born"`
 	Hunger        float64   `json:"hunger"`
 	HungerUpdated time.Time `json:"hungerUpdated"`
@@ -47,20 +46,24 @@ func readSave(t *testing.T, dataDir string) savedFish {
 	return s
 }
 
-func TestNamingSavesAFullFishWithAPastelColour(t *testing.T) {
+func TestNamingSavesAFullFishOfItsSpecies(t *testing.T) {
 	h := newHarness(t)
 	h.resize(40, 10)
+	h.press("enter") // a clownfish, the picker's first Species
 	h.nameFish("  Bubbles ")
 
 	s := readSave(t, h.dataDir)
-	if s.Version != 1 {
-		t.Errorf("schema version = %d, want 1", s.Version)
+	if s.Version != 2 {
+		t.Errorf("schema version = %d, want 2", s.Version)
 	}
 	if s.Name != "Bubbles" {
 		t.Errorf("name = %q, want %q", s.Name, "Bubbles")
 	}
-	if !regexp.MustCompile(`^#[0-9A-F]{6}$`).MatchString(s.Colour) {
-		t.Errorf("colour = %q, want a #RRGGBB colour", s.Colour)
+	if s.Species != "clownfish" {
+		t.Errorf("species = %q, want clownfish", s.Species)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(h.dataDir, "fish.json")); strings.Contains(string(raw), "colour") {
+		t.Errorf("the save file still holds a colour:\n%s", raw)
 	}
 	if s.Hunger != 0 {
 		t.Errorf("Hunger = %v, want 0 (Full)", s.Hunger)
@@ -77,9 +80,7 @@ func TestNamingSavesAFullFishWithAPastelColour(t *testing.T) {
 
 func TestNamingCreatesAMissingDataFolder(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "shellfish")
-	h := newHarness(t, withDataDir(dir))
-	h.resize(40, 10)
-	h.nameFish("Bubbles")
+	newHarness(t, withDataDir(dir), named("Bubbles"))
 
 	if s := readSave(t, dir); s.Name != "Bubbles" {
 		t.Errorf("name = %q, want Bubbles", s.Name)
@@ -101,7 +102,7 @@ func TestLaterLaunchLoadsTheSameFish(t *testing.T) {
 	if !strings.Contains(screen, "Bubbles") || !showsFish(screen) {
 		t.Errorf("a later launch does not show Bubbles in the Tank:\n%s", screen)
 	}
-	if got := readSave(t, first.dataDir); got.Colour != saved.Colour || !got.Born.Equal(saved.Born) {
+	if got := readSave(t, first.dataDir); got.Species != saved.Species || !got.Born.Equal(saved.Born) {
 		t.Errorf("the Fish changed between launches: %+v, then %+v", saved, got)
 	}
 }

@@ -42,6 +42,22 @@ type Body struct {
 	MouthRight, MouthLeft int
 }
 
+// BodyOf is the box Species s is drawn in, in cells, and the cell its mouth
+// is in, facing either way. Its drawing is measured in cells across and
+// half-rows down.
+func BodyOf(s fish.Species) Body {
+	a := s.Art()
+	w := int(math.Ceil(a.W))
+	col := int(a.MouthX)
+	return Body{
+		Width:      w,
+		Height:     int(math.Ceil(a.H / 2)),
+		MouthRow:   int(a.MouthY / 2),
+		MouthRight: col,
+		MouthLeft:  w - 1 - col,
+	}
+}
+
 // Fish is where the Fish is drawn.
 type Fish struct {
 	// Col and Row are the top-left cell of its Body's box.
@@ -168,6 +184,27 @@ func (t *Tank) Resize(width, height int) {
 		fd.y = min(fd.y, rest)
 		fd.landed = fd.landed && fd.y == rest
 	}
+}
+
+// Reshape gives the Fish a new Body, as when the user browses Species, and
+// moves it back inside if it no longer fits. The seaweed is regrown only if
+// the Fish could no longer swim over it.
+func (t *Tank) Reshape(b Body) {
+	if b == t.body {
+		return
+	}
+	t.body = b
+	tallest := 0
+	for _, st := range t.seaweed {
+		tallest = max(tallest, st.height)
+	}
+	if tallest > t.waterRows()-b.Height-FishClearance {
+		t.growSeaweed()
+		t.placeShells()
+		t.trimDecor()
+	}
+	t.keepFishInside()
+	t.fish.mode, t.fish.timer, t.fish.chasing = hovering, 0, false
 }
 
 // Drop puts Food of kind k into the Tank at the cell col, row. Food dropped

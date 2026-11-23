@@ -22,6 +22,9 @@ type Scene struct {
 	// Away is how long the user was away, while the Tank greets them for
 	// it. Zero shows no greeting.
 	Away time.Duration
+	// Picking is the Species shown on the Species picker, which takes the
+	// status line's place. NoSpecies shows the status line.
+	Picking fish.Species
 }
 
 // Status is what the status line shows.
@@ -42,7 +45,25 @@ func Screen(sc Scene) string {
 	if len(water) > 0 && sc.Away > 0 {
 		drawGreeting(water[:len(water)-1], greeting(sc.Status.Name, sc.Away), sc.Tank.Width) // over the water, not the sand
 	}
-	return strings.Join(append(water, statusLine(sc.Status, sc.Tank.Width)), "\n")
+	bottom := statusLine(sc.Status, sc.Tank.Width)
+	if sc.Picking != fish.NoSpecies {
+		bottom = pickerLine(sc.Picking, sc.Tank.Width)
+	}
+	return strings.Join(append(water, bottom), "\n")
+}
+
+// pickerHint teaches the Species picker's keys.
+const pickerHint = "←/→ browse · enter choose"
+
+// pickerLine is exactly width cells: the Species shown on the picker on the
+// left and a faint key hint at the right end, which makes way when there is
+// no room.
+func pickerLine(s fish.Species, width int) string {
+	species := " Species: ‹ " + s.Title() + " ›"
+	if gap := width - ansi.StringWidth(species) - ansi.StringWidth(pickerHint) - 1; gap >= 2 {
+		return species + strings.Repeat(" ", gap) + faintStyle.Render(pickerHint) + " "
+	}
+	return fit(species, width)
 }
 
 // greeting welcomes the user back to the Fish called name after away.

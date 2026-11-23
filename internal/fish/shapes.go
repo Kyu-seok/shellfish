@@ -1,4 +1,4 @@
-package render
+package fish
 
 // Shapes are what a Species is drawn from. Coordinates are x in cells and y
 // in half-rows, so one unit is about as wide as it is tall and circles come

@@ -4,16 +4,17 @@ package fish
 
 import (
 	"errors"
-	"math/rand/v2"
 	"strings"
 	"time"
 )
 
 // Fish is the one pet a user owns.
 type Fish struct {
-	Name   string
-	Colour Colour
-	Born   time.Time
+	Name string
+	// Species is what kind of fish it is, for life. A Fish saved before
+	// Species existed has NoSpecies until the user picks one.
+	Species Species
+	Born    time.Time
 
 	// Hunger runs from MinHunger to MaxHunger.
 	Hunger float64
@@ -26,16 +27,15 @@ type Fish struct {
 // ErrBlankName is returned for a name that is empty or only whitespace.
 var ErrBlankName = errors.New("your Fish needs a name")
 
-// Hatch names a new Fish at now. It is born Full, with a colour picked at
-// random from the Palette.
-func Hatch(name string, now time.Time, r *rand.Rand) (Fish, error) {
+// Hatch names a new Fish of Species s at now. It is born Full.
+func Hatch(name string, s Species, now time.Time) (Fish, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Fish{}, ErrBlankName
 	}
 	return Fish{
 		Name:          name,
-		Colour:        Palette[r.IntN(len(Palette))],
+		Species:       s,
 		Born:          now,
 		Hunger:        MinHunger,
 		HungerUpdated: now,

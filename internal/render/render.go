@@ -26,7 +26,7 @@ var flourishGlyphs = map[tank.FlourishKind]rune{
 // Look is how the Fish looks right now.
 type Look struct {
 	// Art is how the Fish is drawn.
-	Art Art
+	Art fish.Art
 	// Mood shows in its eye.
 	Mood fish.Mood
 	// Monochrome draws without colour, for NO_COLOR or a terminal with too

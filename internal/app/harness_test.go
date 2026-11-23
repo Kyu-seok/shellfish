@@ -17,7 +17,8 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/Kyu-seok/shellfish/internal/app"
-	"github.com/Kyu-seok/shellfish/internal/render"
+	"github.com/Kyu-seok/shellfish/internal/fish"
+	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
 // start is the fake clock's time when a harness is built, unless overridden.
@@ -50,10 +51,15 @@ type option func(*harness)
 // withDataDir launches on an existing data folder, as a later launch would.
 func withDataDir(dir string) option { return func(h *harness) { h.dataDir = dir } }
 
-// named launches and names the Fish on its first-launch prompt, so the Tank
-// is open when the test starts.
+// named launches, chooses the picker's first Species (a clownfish) and names
+// the Fish, so the Tank is open when the test starts.
 func named(name string) option {
-	return func(h *harness) { h.afterLaunch = append(h.afterLaunch, func() { h.nameFish(name) }) }
+	return func(h *harness) {
+		h.afterLaunch = append(h.afterLaunch, func() {
+			h.press("enter")
+			h.nameFish(name)
+		})
+	}
 }
 
 // monochrome launches as on a terminal with NO_COLOR set or too few colours.
@@ -100,9 +106,14 @@ func (h *harness) resize(width, height int) {
 }
 
 // press sends one key, named as tea.KeyMsg.String() names it: "q", "esc",
-// "ctrl+c", "enter", "backspace", " ", or any single printable character.
+// "ctrl+c", "enter", "backspace", "left", "right", " ", or any single
+// printable character.
 func (h *harness) press(key string) {
 	switch key {
+	case "left":
+		h.send(tea.KeyMsg{Type: tea.KeyLeft})
+	case "right":
+		h.send(tea.KeyMsg{Type: tea.KeyRight})
 	case "esc":
 		h.send(tea.KeyMsg{Type: tea.KeyEsc})
 	case "ctrl+c":
@@ -125,7 +136,7 @@ func (h *harness) typeText(s string) {
 	}
 }
 
-// nameFish answers the first-launch prompt.
+// nameFish answers the naming prompt, which follows the Species picker.
 func (h *harness) nameFish(name string) {
 	h.typeText(name)
 	h.press("enter")
@@ -194,11 +205,12 @@ type sighting struct {
 	eating   bool // its mouth is open, just before it eats
 }
 
-// The Fish is a clownfish: art is how it is drawn, and body its box and
-// mouth in cells.
+// The Fish is a clownfish unless a test picks another Species: art is how
+// it is drawn, and body its box and mouth in cells, from the Species table
+// the app draws from.
 var (
-	art  = render.Clownfish
-	body = art.Body()
+	art  = fish.Clownfish.Art()
+	body = tank.BodyOf(fish.Clownfish)
 )
 
 // tearColour is the tear a Starving Fish sheds below its eye.
