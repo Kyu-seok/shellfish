@@ -200,9 +200,9 @@ func (h *harness) eats(limit time.Duration) bool {
 	return false
 }
 
-// In monochrome every Species is a plain silhouette with its eye left
-// clear, facing either way.
-func TestEverySpeciesHasAGapForItsEyeInMonochrome(t *testing.T) {
+// In monochrome every Species is a plain silhouette with its eye a hole
+// in it, closed all round, facing either way.
+func TestEverySpeciesHasAHoleForItsEyeInMonochrome(t *testing.T) {
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		h := newHarness(t, as(sp), named("Bubbles"), monochrome())
 		h.resize(80, 24)
@@ -214,8 +214,8 @@ func TestEverySpeciesHasAGapForItsEyeInMonochrome(t *testing.T) {
 			if !ok || !s.intact {
 				t.Fatalf("frame %d: no whole Fish found in monochrome:\n%s", i, strings.Join(rows, "\n"))
 			}
-			if !eyeGap(rows, sp.Art(), s.left, s.top, s.facingLeft) {
-				t.Fatalf("frame %d: the Fish's eye is not a gap in its silhouette:\n%s", i, strings.Join(rows, "\n"))
+			if !eyeHole(rows, sp.Art(), s.left, s.top, s.facingLeft) {
+				t.Fatalf("frame %d: the Fish's eye is not a hole in its silhouette:\n%s", i, strings.Join(rows, "\n"))
 			}
 			turned[s.facingLeft] = true
 		}

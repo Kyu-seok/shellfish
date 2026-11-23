@@ -132,7 +132,7 @@ func TestMonochromeDrawsNoColour(t *testing.T) {
 
 // In monochrome the Fish is a plain silhouette, with its eye left clear so
 // it still reads as a face.
-func TestMonochromeFishHasAGapForItsEye(t *testing.T) {
+func TestMonochromeFishHasAHoleForItsEye(t *testing.T) {
 	h := newHarness(t, named("Bubbles"), monochrome())
 	h.resize(80, 24)
 	turned := map[bool]bool{}
@@ -143,8 +143,8 @@ func TestMonochromeFishHasAGapForItsEye(t *testing.T) {
 		if !ok || !s.intact {
 			t.Fatalf("frame %d: no whole Fish found in monochrome:\n%s", i, strings.Join(rows, "\n"))
 		}
-		if !eyeGap(rows, art, s.left, s.top, s.facingLeft) {
-			t.Fatalf("frame %d: the Fish's eye is not a gap in its silhouette:\n%s", i, strings.Join(rows, "\n"))
+		if !eyeHole(rows, art, s.left, s.top, s.facingLeft) {
+			t.Fatalf("frame %d: the Fish's eye is not a hole in its silhouette:\n%s", i, strings.Join(rows, "\n"))
 		}
 		turned[s.facingLeft] = true
 	}

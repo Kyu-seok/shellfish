@@ -24,8 +24,14 @@ const on = "on"
 func drawFish(g grid, art fish.Art, f tank.Fish, mood fish.Mood, mono bool) {
 	layers := slices.Concat(art.Layers, faceLayers(art, f, mood))
 	if mono {
-		// A silhouette, with the eye left clear so it still reads as a face.
-		layers = slices.Concat(art.Layers, []fish.Layer{fish.Fill("", fish.Circle(art.Eye.X, art.Eye.Y, art.Eye.R))})
+		// A silhouette, with the eye a hole in it so it still reads as a
+		// face. A ring of body round the eye closes the hole where the eye
+		// is near the edge.
+		e := art.Eye
+		layers = slices.Concat(art.Layers, []fish.Layer{
+			fish.Fill(on, fish.Circle(e.X, e.Y, e.R+EyeRing)),
+			fish.Fill("", fish.Circle(e.X, e.Y, e.R)),
+		})
 	}
 	swish := TailSwing * math.Sin(math.Pi*f.Tail)
 	cols, rows := int(math.Ceil(art.W)), int(math.Ceil(art.H/2))

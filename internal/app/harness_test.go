@@ -353,7 +353,7 @@ func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
 		}
 		x0, y0, x1, y1 := eyeArea(art, body, left)
 		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
-		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeGap(rows, art, s.left, s.top, left)
+		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeHole(rows, art, s.left, s.top, left)
 		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) || mono {
 			s.facingLeft = left
 			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
@@ -425,10 +425,11 @@ func filled(rows []string, x, y int) bool {
 	return sextantMask(row[x/2])&(1<<(y%3*2+x%2)) != 0
 }
 
-// eyeGap reports whether the Fish drawn as art, whose box's top-left is
-// left, top, has its eye as a gap in its silhouette: the eye's middle
-// pixel is clear, with the Fish filled to either side of it and below.
-func eyeGap(rows []string, art fish.Art, left, top int, facingLeft bool) bool {
+// eyeHole reports whether the Fish drawn as art, whose box's top-left is
+// left, top, has its eye as a hole in its silhouette: the eye's middle
+// pixel is clear, with the Fish filled to either side of it, above and
+// below.
+func eyeHole(rows []string, art fish.Art, left, top int, facingLeft bool) bool {
 	ex := art.Eye.X
 	if facingLeft {
 		ex = art.W - ex
@@ -445,7 +446,7 @@ func eyeGap(rows []string, art fish.Art, left, top int, facingLeft bool) bool {
 		}
 		return false
 	}
-	return reach(-1, 0) && reach(1, 0) && reach(0, 1)
+	return reach(-1, 0) && reach(1, 0) && reach(0, -1) && reach(0, 1)
 }
 
 // sextantMask is which of a cell's 2×3 pixels the character c fills: bits

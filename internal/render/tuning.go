@@ -25,3 +25,8 @@ const KelpLean = 1.4
 // GrassBend is how far into its sway a tuft of grass must be before its
 // blade leans over.
 const GrassBend = 0.35
+
+// EyeRing is how thick, in cells, the ring of body round a monochrome
+// Fish's eye is: just over a pixel either way, so the eye is always a hole
+// closed all round.
+const EyeRing = 0.7
