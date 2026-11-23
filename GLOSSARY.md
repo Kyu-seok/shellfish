@@ -8,6 +8,10 @@ A virtual pet fish that lives in the terminal. You keep it fed, and it carries o
 The one pet a user owns. It has a name, is never deleted, and cannot die.
 _Avoid_: Pet, tamagotchi, creature
 
+**Species**:
+What kind of fish the Fish is, such as a clownfish or a goldfish. A Fish has one Species for life, and its Species decides its colours.
+_Avoid_: Breed, type, skin, colour
+
 **Tank**:
 The space the Fish lives in and the user looks into. Food is dropped into it.
 _Avoid_: Aquarium, bowl, screen
@@ -35,3 +39,7 @@ _Avoid_: Emotion, state, health
 **Age**:
 How many days have passed since the Fish was named.
 _Avoid_: Level, lifetime
+
+**Scenery**:
+The fixed, non-living things that make up the Tank: seaweed, the sandy floor, shells and the water's surface. Bubbles, hearts and notes come and go, so they are not Scenery.
+_Avoid_: Decor, decorations, props, objects
