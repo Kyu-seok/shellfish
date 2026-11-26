@@ -263,6 +263,16 @@ func fishBounds(rows []string) (minX, minY, maxX, maxY int, ok bool) {
 	return minX, minY, maxX, maxY, maxY >= 0
 }
 
+// behindFish reports whether a cell is inside the box around the Fish drawn
+// in rows, which hides what is behind it even where its drawing shows a
+// space. With no Fish drawn, nothing is.
+func behindFish(rows []string) func(x, y int) bool {
+	minX, minY, maxX, maxY, seen := fishBounds(rows)
+	return func(x, y int) bool {
+		return seen && x >= minX && x <= maxX && y >= minY && y <= maxY
+	}
+}
+
 // colours is every foreground and background colour of rows' cells in
 // columns x0 to x1 and rows y0 to y1.
 func colours(raw []string, x0, y0, x1, y1 int) map[string]bool {

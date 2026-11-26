@@ -220,10 +220,7 @@ func TestAContentFishShowsHeartsAndNotesNowAndThen(t *testing.T) {
 // what is behind it even where its drawing shows a space.
 func newBubbles(prev, cur []string) (n int, glyphs []string) {
 	floor := floorRow(cur)
-	minX, minY, maxX, maxY, seen := fishBounds(prev)
-	hidden := func(x, y int) bool {
-		return seen && x >= minX && x <= maxX && y >= minY && y <= maxY
-	}
+	hidden := behindFish(prev)
 	for y := 0; y < floor-1; y++ {
 		was, below, now := cells(prev[y]), cells(prev[y+1]), cells(cur[y])
 		for x, c := range now {

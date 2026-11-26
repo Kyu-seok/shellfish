@@ -112,12 +112,11 @@ func (h *harness) release() {
 
 // bubbles counts the bubbles drawn in the water, leaving out the Fish.
 func bubbles(rows []string) int {
-	left, top, right, bottom, seen := fishBounds(rows)
+	inFish := behindFish(rows)
 	n := 0
 	for y := 1; y < floorRow(rows)-1; y++ {
 		for x, c := range cells(rows[y]) {
-			inFish := seen && x >= left && x <= right && y >= top && y <= bottom
-			if !inFish && strings.Contains("°oO", c) && c != "" {
+			if isBubble(c) && !inFish(x, y) {
 				n++
 			}
 		}
