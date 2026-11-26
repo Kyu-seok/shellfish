@@ -103,7 +103,9 @@ const (
 // The Fish going for Food.
 const (
 	// ChaseSpeed and ChaseAccel are the Fish's top speed and acceleration on
-	// its way to Food: quicker than a cruise.
+	// its way to Food, before its Mood's eagerness scales them. ChaseSpeed
+	// times the greatest eagerness must stay at or below 20 so the Fish never
+	// skips a cell between frames.
 	ChaseSpeed = 12.0
 	ChaseAccel = 24.0
 	// ReverseSpeed is how fast the Fish can back up to line its mouth up with
@@ -131,6 +133,11 @@ const (
 type energy struct {
 	// speed scales its top speed and acceleration when it wanders or darts.
 	speed float64
+	// eagerness scales its top speed and acceleration on its way to Food.
+	eagerness float64
+	// notice is how long it holds still, having noticed Food, before it
+	// darts at it.
+	notice float64
 	// dartChance is the chance that a trip is a quick dart.
 	dartChance float64
 	// pause scales how long it hovers between trips.
@@ -142,11 +149,12 @@ type energy struct {
 
 // energies is how lively the Fish is in each Mood: brisk when Content,
 // slower when Hungry, and barely moving, low in the Tank, when Starving.
-// Going for Food is as eager in any Mood.
+// Going for Food is the other way round: a Content Fish drifts over lazily
+// and a Starving one dashes, its hunger stronger than its weariness.
 var energies = map[fish.Mood]energy{
-	fish.Content:  {speed: 1, dartChance: DartChance, pause: 1},
-	fish.Hungry:   {speed: 0.5, dartChance: DartChance / 4, pause: 2},
-	fish.Starving: {speed: 0.25, dartChance: 0, pause: 3, low: true},
+	fish.Content:  {speed: 1, eagerness: 0.6, notice: 0.5, dartChance: DartChance, pause: 1},
+	fish.Hungry:   {speed: 0.5, eagerness: 1, notice: 0.35, dartChance: DartChance / 4, pause: 2},
+	fish.Starving: {speed: 0.25, eagerness: 1.4, notice: 0.2, dartChance: 0, pause: 3, low: true},
 }
 
 // LowWater is the share of the rows the Fish can swim in, counted up from
@@ -189,4 +197,34 @@ const (
 	// Content Fish shows now and then.
 	NoteMin = 6.0
 	NoteMax = 15.0
+)
+
+// A Pat.
+const (
+	// WiggleTime is how long the Fish wiggles after a Pat.
+	WiggleTime = 0.6
+	// WiggleTailRate adds tail swishes per second while it wiggles, and
+	// WiggleBobRate adds bobs per second.
+	WiggleTailRate = 6.0
+	WiggleBobRate  = 1.5
+	// PatHeartGap is the least time between the hearts that Pats send up,
+	// so that patting fast can't flood the Tank with them.
+	PatHeartGap = 1.0
+)
+
+// Curiosity: the Fish wandering near the Hand.
+const (
+	// CuriosityFade is how long the Hand can stay still before the Fish
+	// loses interest in it.
+	CuriosityFade = 10.0
+	// CuriousCols and CuriousRows are how far from the Hand, either way, the
+	// middle of the Fish wanders to while it is curious.
+	CuriousCols = 6.0
+	CuriousRows = 1.5
+	// CuriousPause scales how long a curious Fish hovers between trips, so it
+	// keeps up with a moving Hand.
+	CuriousPause = 0.5
+	// FaceHandGap is how far past the front or back of the Fish's box the
+	// Hand must be before a hovering, curious Fish turns to face it.
+	FaceHandGap = 3.0
 )

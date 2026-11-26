@@ -591,6 +591,29 @@ func (h *harness) click(col, row int) {
 	)
 }
 
+// hover moves the pointer, with no button held, onto the cell at col, row,
+// as a terminal reporting all mouse motion sends it.
+func (h *harness) hover(col, row int) {
+	h.send(tea.MouseMsg{X: col, Y: row, Action: tea.MouseActionMotion, Button: tea.MouseButtonNone})
+}
+
+// onFish reports whether the Fish is drawn in the cell at col, row.
+func (h *harness) onFish(col, row int) bool { return isFishCell(h.cellAt(col, row)) }
+
+// waitOffFish advances, a frame at a time, until the Fish is not drawn in
+// the cell at col, row, so that a click there drops Food rather than patting
+// it. It fails the test if the Fish stays there longer than limit.
+func (h *harness) waitOffFish(col, row int, limit time.Duration) {
+	h.t.Helper()
+	for range int(limit / app.FrameInterval) {
+		if !h.onFish(col, row) {
+			return
+		}
+		h.advance(app.FrameInterval)
+	}
+	h.t.Fatalf("the Fish stayed on (%d, %d) for %v:\n%s", col, row, limit, h.screen())
+}
+
 // cellAt is the character drawn at col, row, or "" outside the window.
 func (h *harness) cellAt(col, row int) string {
 	rows := h.view()

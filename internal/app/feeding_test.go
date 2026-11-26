@@ -371,6 +371,9 @@ func TestAHungryFishEatsFoodDroppedAnywhereSoon(t *testing.T) {
 		h.resize(size.w, size.h)
 		where := rand.New(rand.NewPCG(seed, 99))
 		col, row := where.IntN(size.w), where.IntN(floorRow(h.view())+1) // any cell of the Tank, sand included
+		for h.onFish(col, row) {                                         // a click there would pat the Fish
+			col, row = where.IntN(size.w), where.IntN(floorRow(h.view())+1)
+		}
 		weed := seaweedCells(h.view())
 		h.click(col, row)
 
@@ -384,27 +387,97 @@ func TestAHungryFishEatsFoodDroppedAnywhereSoon(t *testing.T) {
 	}
 }
 
-func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
+// A Content Fish drifts over to Food, a Hungry one swims, and a Starving
+// one dashes: its hunger beats its weariness.
+func TestTheHungrierTheFishTheFasterItGoesForFood(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t, named("Bubbles")) // Full, so the Food sinks past it
-	h.resize(80, 24)
-	fish, ok := findFish(h.rawView())
-	if !ok {
-		t.Fatalf("no Fish to click on:\n%s", h.screen())
-	}
-	x0, y0, _, _ := eyeArea(art, body, fish.facingLeft)
-	eyeCol, eyeRow := fish.left+x0, fish.top+y0
-	h.click(eyeCol, eyeRow)
-
-	for range int(15 * time.Second / app.FrameInterval) {
-		h.advance(app.FrameInterval)
-		for row := eyeRow + 1; row <= h.bottom(); row++ {
-			if h.cellAt(eyeCol, row) == pellet {
-				return // it sank out from behind the Fish
+	speed := map[string]int{}
+	for _, tc := range []struct {
+		mood  string
+		after time.Duration
+	}{
+		{"Content", 6 * time.Hour},   // Hunger 25: Content, but not Full
+		{"Hungry", 12 * time.Hour},   // Hunger 50
+		{"Starving", 22 * time.Hour}, // Hunger about 92
+	} {
+		h := hungerAfter(t, tc.after)
+		h.resize(120, 24)
+		if got := h.fishMood(); got != tc.mood {
+			t.Fatalf("after %v the Fish is %s, want %s", tc.after, got, tc.mood)
+		}
+		s, ok := h.find(h.rawView())
+		if !ok {
+			t.Fatalf("no Fish:\n%s", h.screen())
+		}
+		col := 115 // the far side from the Fish, so it has room to speed up
+		if s.left > 60 {
+			col = 4
+		}
+		h.click(col, h.bottom())
+		var lefts []int
+		for range int(20 * time.Second / app.FrameInterval) {
+			s, _ := h.find(h.rawView())
+			lefts = append(lefts, s.left)
+			if _, ate := h.eats(app.FrameInterval); ate {
+				break
 			}
 		}
+		// The most columns covered in any one second.
+		perSecond := int(time.Second / app.FrameInterval)
+		for i := perSecond; i < len(lefts); i++ {
+			speed[tc.mood] = max(speed[tc.mood], abs(lefts[i]-lefts[i-perSecond]))
+		}
 	}
-	t.Errorf("clicking on the Fish at (%d, %d) dropped no Food:\n%s", eyeCol, eyeRow, h.screen())
+	if !(speed["Content"] < speed["Hungry"] && speed["Hungry"] < speed["Starving"]) {
+		t.Errorf("columns a second on the way to Food: %v; want Content < Hungry < Starving", speed)
+	}
+}
+
+// A Fish that sees Food dropped in front of it stops for a moment, as it
+// notices it, before it darts at it.
+func TestTheFishPausesAsItNoticesFood(t *testing.T) {
+	t.Parallel()
+	h := hungerAfter(t, 6*time.Hour) // Content, so it pauses longest
+	h.resize(120, 24)
+	// Wait until the Fish faces a long stretch of water.
+	var s sighting
+	ahead := func() int {
+		if s.facingLeft {
+			return s.left - 30
+		}
+		return s.left + h.body().Width + 30
+	}
+	for range int(30 * time.Second / app.FrameInterval) {
+		s, _ = h.find(h.rawView())
+		if c := ahead(); c >= 2 && c < 118 {
+			break
+		}
+		h.advance(app.FrameInterval)
+	}
+	col := ahead()
+	if col < 2 || col >= 118 {
+		t.Fatalf("the Fish never faced 30 columns of water:\n%s", h.screen())
+	}
+	h.click(col, s.top+h.body().MouthRow)
+
+	// The longest the Fish stays in one column before it eats.
+	longest, run, last, ate := 0, 0, -1, false
+	for i := 0; i < int(20*time.Second/app.FrameInterval) && !ate; i++ {
+		s, _ := h.find(h.rawView())
+		if s.left == last {
+			run++
+		} else {
+			run = 1
+		}
+		last, longest = s.left, max(longest, run)
+		_, ate = h.eats(app.FrameInterval)
+	}
+	if !ate {
+		t.Fatalf("the Fish never ate the Food at column %d:\n%s", col, h.screen())
+	}
+	if want := 10; longest < want { // half a second
+		t.Errorf("on its way to Food in front of it the Fish stayed in one column for at most %d frames, want a pause of %d", longest, want)
+	}
 }
 
 // Each Food Kind is drawn in its own colour, so they can be told apart:

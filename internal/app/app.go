@@ -93,7 +93,7 @@ type Model struct {
 	away       time.Duration // how long the user was away, if long enough to greet them
 	greetUntil time.Time     // when the greeting goes away by itself
 	byeUntil   time.Time     // when the farewell ends and the picker opens
-	foodKind   fish.FoodKind // what a click or f drops
+	foodKind   fish.FoodKind // what a click on the water or f drops
 	quitting   bool          // the user has closed the Tank
 }
 
@@ -266,8 +266,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.phase == confirming && msg.Action == tea.MouseActionPress {
 			return m.cancelRelease(), nil // a click only cancels the confirmation
 		}
-		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && m.tankShown() {
-			m.tank.Drop(m.foodKind, msg.X, msg.Y)
+		if !m.tankShown() {
+			if m.tank != nil {
+				m.tank.LoseHand()
+			}
+			return m, nil
+		}
+		// The window's top-left cell is the Tank's, so the two share coordinates.
+		if _, h := tankArea(m.width, m.height); msg.Y < h {
+			m.tank.MoveHand(msg.X, msg.Y)
+		} else {
+			m.tank.LoseHand() // over the status line
+		}
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			// A click on the Fish is a Pat; anywhere else it drops Food.
+			if render.FishAt(m.tank.Snapshot(), m.look(), msg.X, msg.Y) {
+				m.tank.Pat()
+			} else {
+				m.tank.Drop(m.foodKind, msg.X, msg.Y)
+			}
 		}
 	case tea.KeyMsg:
 		if m.refusal != "" {
@@ -331,6 +348,11 @@ func (m Model) tankShown() bool {
 	return m.hasFish() && m.phase == inTank && m.tank != nil && m.width >= MinTankWidth && m.height >= MinTankHeight
 }
 
+// look is how the Fish is drawn now.
+func (m Model) look() render.Look {
+	return render.Look{Art: m.species().Art(), Mood: m.shown().Mood(), Monochrome: m.deps.Monochrome}
+}
+
 // View draws the Tank to fill the window, with the status line below it,
 // or whatever takes its place.
 func (m Model) View() string {
@@ -348,7 +370,7 @@ func (m Model) View() string {
 	}
 	sc := render.Scene{
 		Tank: m.tank.Snapshot(),
-		Look: render.Look{Art: m.species().Art(), Mood: m.shown().Mood(), Monochrome: m.deps.Monochrome},
+		Look: m.look(),
 		Status: render.Status{
 			Name:       m.fish.Name,
 			Hunger:     m.fish.Hunger,

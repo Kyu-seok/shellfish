@@ -100,6 +100,7 @@ type Tank struct {
 	food          []food
 	mood          fish.Mood // how the Fish feels, which sets its energy
 	decor         decor
+	hand          *hand // the Hand, or nil while it is not over the Tank
 }
 
 type food struct {
@@ -117,6 +118,9 @@ const (
 	swimming
 	// turning brakes to a stop, holds for TurnHold, then mirrors and swims.
 	turning
+	// noticing brakes to a stop on first seeing Food, already facing it,
+	// holds for a moment, then darts at it.
+	noticing
 )
 
 // swimmer is the Fish as the simulation moves it.
@@ -134,6 +138,8 @@ type swimmer struct {
 	// where its mouth meets that Food.
 	chasing   bool
 	mouthOpen bool
+	// wiggle is how many seconds are left of the wiggle a Pat started.
+	wiggle float64
 	// leaving is how the Fish is swimming out of the Tank for good, or nil
 	// while it stays.
 	leaving *departure
@@ -301,6 +307,9 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	t.settleFood(s)
 	f := &t.fish
 	f.bob += s * 2 * math.Pi / BobPeriod
+	if t.hand != nil {
+		t.hand.still += s
+	}
 	if f.leaving != nil {
 		t.leave(s)
 		f.tail += s * (TailBaseRate + TailRatePerSpeed*math.Abs(f.vx))
@@ -315,6 +324,17 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 		f.timer -= s
 		if f.timer <= 0 {
 			t.startTrip()
+		} else {
+			t.faceHand()
+		}
+	case noticing:
+		f.vx = approach(f.vx, 0, f.accel*s)
+		f.vy = approach(f.vy, 0, f.accel*VerticalScale*s)
+		if f.vx == 0 {
+			f.timer -= s
+		}
+		if f.timer <= 0 {
+			f.mode, f.timer = swimming, 0
 		}
 	case turning:
 		f.vx = approach(f.vx, 0, Accel*s)
@@ -342,6 +362,7 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	}
 	t.move(s)
 	f.tail += s * (TailBaseRate + TailRatePerSpeed*math.Hypot(f.vx, f.vy))
+	t.wiggle(s)
 	if full {
 		return nil
 	}
@@ -369,9 +390,10 @@ func (t *Tank) settleFood(s float64) {
 }
 
 // chase points a Fish that isn't Full at the nearest Food it can reach,
-// aiming for where the Food will be by the time the Fish gets there. A Fish
-// facing the wrong way slows, holds and turns first, as it does when
-// wandering.
+// aiming for where the Food will be by the time the Fish gets there, as
+// eagerly as its Mood makes it. A Fish facing the wrong way slows, holds and
+// turns first, as it does when wandering; one already facing the Food holds
+// for a moment as it notices it. Either way it then darts at the Food.
 func (t *Tank) chase(full bool) {
 	f := &t.fish
 	f.mouthOpen = false
@@ -383,17 +405,21 @@ func (t *Tank) chase(full bool) {
 		}
 		return
 	}
+	noticed := !f.chasing
 	f.chasing = true
-	f.tx, f.ty, f.top, f.accel = tx, ty, ChaseSpeed, ChaseAccel
+	e := energies[t.mood].eagerness
+	f.tx, f.ty, f.top, f.accel = tx, ty, ChaseSpeed*e, ChaseAccel*e
 	if !t.pathClear(f.x, f.y, tx, ty) {
 		// Rise over the seaweed first, then come down to the Food.
 		f.ty = min(f.ty, t.aboveSeaweed())
 	}
 	f.mouthOpen = math.Abs(tx-f.x) <= MouthOpenReach && math.Abs(ty-f.y) <= MouthOpenReach && left == f.facingLeft
 	switch {
-	case f.mode == turning:
+	case f.mode == turning, f.mode == noticing:
 	case t.travelFacing(tx, left) != f.facingLeft:
 		f.mode, f.timer = turning, TurnHold
+	case noticed:
+		f.mode, f.timer = noticing, energies[t.mood].notice
 	default:
 		f.mode = swimming
 	}
@@ -455,7 +481,8 @@ func (t *Tank) intercept(fd food, left bool) (x, y float64, ok bool) {
 		if !ok || fd.landed {
 			return x, y, ok
 		}
-		eta := max(math.Abs(x-f.x)/ChaseSpeed, math.Abs(y-f.y)/(ChaseSpeed*VerticalScale))
+		speed := ChaseSpeed * energies[t.mood].eagerness
+		eta := max(math.Abs(x-f.x)/speed, math.Abs(y-f.y)/(speed*VerticalScale))
 		fy = min(fd.y+fd.kind.SinkSpeed()*eta, float64(t.restRow(int(fd.x))))
 	}
 	return x, y, ok
@@ -547,6 +574,9 @@ func (t *Tank) Snapshot() Snapshot {
 func (t *Tank) startTrip() {
 	f := &t.fish
 	e := energies[t.mood]
+	if t.curious() && t.visitHand() {
+		return
+	}
 	if t.rand.Float64() < e.dartChance {
 		dir := 1.0
 		if f.facingLeft {
@@ -603,7 +633,11 @@ func (t *Tank) droop() {
 // hoverTime is how long the Fish pauses between trips: longer the worse it
 // feels.
 func (t *Tank) hoverTime() float64 {
-	return between(t.rand, HoverMin, HoverMax) * energies[t.mood].pause
+	pause := between(t.rand, HoverMin, HoverMax) * energies[t.mood].pause
+	if t.curious() {
+		pause *= CuriousPause
+	}
+	return pause
 }
 
 // setOff starts a trip to tx, ty, turning around first if it is behind.

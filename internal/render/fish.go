@@ -193,3 +193,15 @@ func sextant(mask int) rune {
 	}
 	return rune(0x1FB00 + i)
 }
+
+// FishAt reports whether the Fish in s, looking as look says, is drawn in
+// the cell at col, row: whether a click there lands on it.
+func FishAt(s tank.Snapshot, look Look, col, row int) bool {
+	if col < 0 || col >= s.Width || row < 0 || row >= s.Height {
+		return false
+	}
+	g := newGrid(s.Width, s.Height)
+	drawFish(g, look.Art, s.Fish, look.Mood, look.Monochrome)
+	c := g[row][col]
+	return c.c != ' ' || c.bg != ""
+}

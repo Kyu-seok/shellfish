@@ -51,6 +51,7 @@ type decor struct {
 	ambientIn  float64 // seconds until the next bubble rises from the floor
 	puffIn     float64 // seconds until a Content Fish blows a bubble
 	noteIn     float64 // seconds until a Content Fish shows a heart or note
+	patHeartIn float64 // seconds until a Pat can send up another heart
 	bubbles    []bubble
 	flourishes []flourish
 }

@@ -182,6 +182,7 @@ func TestEverySpeciesReachesFoodOnEveryColumnOfTheFloor(t *testing.T) {
 			for col := range size.w {
 				h.clock.now = h.clock.now.Add(144 * time.Minute) // Hunger up 10, as much as a pellet takes off
 				h.advance(app.FrameInterval)                     // which the periodic save notes
+				h.waitOffFish(col, h.bottom(), 30*time.Second)   // a click on the Fish would pat it
 				h.click(col, h.bottom())
 				if _, ate := h.eats(10 * time.Second); !ate {
 					t.Fatalf("%dx%d: the Fish never ate the Food dropped on the floor at column %d:\n%s",
