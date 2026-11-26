@@ -48,12 +48,26 @@ const (
 	confirming
 	// farewell: the released Fish is swimming out of its Tank, saying bye.
 	farewell
-	// picking: the Species picker is up, choosing a Species either for a new
-	// Fish or for a Fish saved before Species existed.
+	// picking: the Species picker is up, choosing a Species for a new Fish.
 	picking
 	// naming: the naming prompt is up for a new Fish of the chosen Species.
 	naming
+	// pickingForSaved: the Species picker is up, choosing a Species for the
+	// saved Fish, which was saved before Species existed.
+	pickingForSaved
 )
+
+// live reports whether the saved Fish is living in its open Tank in p: it
+// ages, eats and is saved. It lives on while the user is asked whether to
+// release it and while it swims away.
+func (p phase) live() bool { return p == inTank || p == confirming || p == farewell }
+
+// picks reports whether the Species picker is up in p.
+func (p phase) picks() bool { return p == picking || p == pickingForSaved }
+
+// showsSaved reports whether the saved Fish is drawn in the Tank in p, rather
+// than a new Fish yet to be hatched.
+func (p phase) showsSaved() bool { return p.live() || p == pickingForSaved }
 
 // Model is the running app.
 type Model struct {
@@ -63,10 +77,10 @@ type Model struct {
 	phase         phase
 	// The picker and naming prompt keep their own state, apart from fish, so
 	// that fish stays the saved Fish until a new one is named.
-	pick    int          // which of fish.AllSpecies the picker shows
-	chosen  fish.Species // the Species chosen on the picker for the Fish being named
-	name    []rune       // the name typed so far on the naming prompt
-	nameErr error        // why the last name was rejected
+	pick          int          // which of fish.AllSpecies the picker shows
+	chosenSpecies fish.Species // the Species chosen on the picker for the Fish being named
+	name          []rune       // the name typed so far on the naming prompt
+	nameErr       error        // why the last name was rejected
 	// fish is the saved Fish: zero before the first one is named, and without
 	// a Species if it was saved before Species existed.
 	fish       fish.Fish
@@ -104,14 +118,14 @@ func New(deps Deps) Model {
 	f, err := store.Load(deps.DataDir)
 	switch {
 	case errors.Is(err, store.ErrNoFish):
-		m = m.startPicking()
+		m = m.startPicking(picking)
 	case err != nil:
 		m.err = err
 	default:
 		m.away = awayFor(f, m.now)
 		m.fish = f.CatchUp(m.now)
 		if f.Species == fish.NoSpecies {
-			m = m.startPicking() // the greeting waits until the Tank opens
+			m = m.startPicking(pickingForSaved) // the greeting waits until the Tank opens
 		} else {
 			m.greetUntil = m.now.Add(GreetingDuration)
 		}
@@ -122,18 +136,19 @@ func New(deps Deps) Model {
 // species is the Species drawn in the Tank: the one the picker shows while
 // it is up, the chosen one while naming, and the Fish's own in the Tank.
 func (m Model) species() fish.Species {
-	switch m.phase {
-	case picking:
+	switch {
+	case m.phase.picks():
 		return fish.AllSpecies[m.pick]
-	case naming:
-		return m.chosen
+	case m.phase == naming:
+		return m.chosenSpecies
 	}
 	return m.fish.Species
 }
 
-// startPicking opens the Species picker on the first Species.
-func (m Model) startPicking() Model {
-	m.phase, m.pick = picking, 0
+// startPicking opens the Species picker on the first Species, in phase p:
+// picking for a new Fish, or pickingForSaved.
+func (m Model) startPicking(p phase) Model {
+	m.phase, m.pick = p, 0
 	if m.tank != nil {
 		m.tank.Reshape(tank.BodyOf(m.species()))
 	}
@@ -144,7 +159,7 @@ func (m Model) startPicking() Model {
 // or is having its Species chosen, and otherwise a Fish yet to be hatched,
 // so the picker and naming prompt for a new Fish show nothing of an old one.
 func (m Model) shown() fish.Fish {
-	if m.hasFish() || m.awaitingSpecies() {
+	if m.phase.showsSaved() {
 		return m.fish
 	}
 	return fish.Fish{}
@@ -152,14 +167,8 @@ func (m Model) shown() fish.Fish {
 
 // startNaming opens an empty naming prompt for a new Fish of Species s.
 func (m Model) startNaming(s fish.Species) Model {
-	m.phase, m.chosen, m.name, m.nameErr = naming, s, nil, nil
+	m.phase, m.chosenSpecies, m.name, m.nameErr = naming, s, nil, nil
 	return m
-}
-
-// awaitingSpecies reports whether the saved Fish was saved before Species
-// existed, so the picker chooses its Species rather than a new Fish's.
-func (m Model) awaitingSpecies() bool {
-	return m.fish.Name != "" && m.fish.Species == fish.NoSpecies
 }
 
 // awayFor is how long the user was away from f at now, if it was more than
@@ -255,8 +264,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.MouseMsg:
 		if m.phase == confirming && msg.Action == tea.MouseActionPress {
-			m.phase = inTank // a click only cancels the confirmation
-			return m, nil
+			return m.cancelRelease(), nil // a click only cancels the confirmation
 		}
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && m.tankShown() {
 			m.tank.Drop(m.foodKind, msg.X, msg.Y)
@@ -266,7 +274,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		switch m.phase {
-		case picking:
+		case picking, pickingForSaved:
 			return m.updatePicking(msg)
 		case naming:
 			return m.updateNaming(msg)
@@ -348,7 +356,7 @@ func (m Model) View() string {
 		},
 	}
 	switch m.phase {
-	case picking:
+	case picking, pickingForSaved:
 		sc.Bottom = render.Picker{Species: m.species()}
 	case confirming:
 		sc.Bottom = render.Confirmation{}
@@ -374,7 +382,7 @@ func (m Model) updatePicking(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyRight:
 		m.pick = (m.pick + 1) % n
 	case tea.KeyEnter:
-		if !m.awaitingSpecies() {
+		if m.phase == picking {
 			return m.startNaming(m.species()), nil // a new Fish is named next
 		}
 		// A Fish saved before Species existed opens its Tank now.
@@ -399,7 +407,7 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		return m.quit()
 	case tea.KeyEnter:
-		f, err := fish.Hatch(string(m.name), m.chosen, m.deps.Clock.Now())
+		f, err := fish.Hatch(string(m.name), m.chosenSpecies, m.deps.Clock.Now())
 		if err != nil {
 			m.name, m.nameErr = nil, err
 			return m, nil
@@ -421,11 +429,9 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // hasFish reports whether a Fish is living in this Tank: it has a Species,
 // has been named and loaded without error, and this launch holds the lock.
-// The Fish lives on, and is saved, while the user is asked whether to
-// release it and while it swims away. A refused launch has no Fish of its
-// own, so it never saves.
+// A refused launch has no Fish of its own, so it never saves.
 func (m Model) hasFish() bool {
-	return m.refusal == "" && (m.phase == inTank || m.phase == confirming || m.phase == farewell) && m.err == nil
+	return m.refusal == "" && m.phase.live() && m.err == nil
 }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
@@ -440,8 +446,8 @@ func (m Model) save(now time.Time) Model {
 }
 
 // updateConfirming handles a key while the user is asked whether to release
-// the Fish: y releases it and Ctrl-C quits. Every other key, q and Esc
-// included, only cancels.
+// the Fish: y confirms, and the farewell starts, and Ctrl-C quits. Every
+// other key, q and Esc included, only cancels.
 func (m Model) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -449,12 +455,18 @@ func (m Model) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		return m.sayBye(), nil
 	}
-	m.phase = inTank
-	return m, nil
+	return m.cancelRelease(), nil
 }
 
-// sayBye starts the farewell: the Fish swims out of its Tank, and the Tank
-// stays live until the farewell ends and the Fish is released.
+// cancelRelease takes down the confirmation, back to the Fish in its Tank.
+func (m Model) cancelRelease() Model {
+	m.phase = inTank
+	return m
+}
+
+// sayBye starts the farewell, once the user has confirmed: the Fish swims out
+// of its Tank, and the Tank stays live until the farewell ends and release
+// lets the Fish go.
 func (m Model) sayBye() Model {
 	m.phase, m.byeUntil = farewell, m.deps.Clock.Now().Add(FarewellDuration)
 	m.greetUntil = time.Time{} // the Tank says bye now, not welcome back
@@ -464,12 +476,12 @@ func (m Model) sayBye() Model {
 	return m
 }
 
-// release lets the Fish go, and the Species picker opens for a new Fish, as
-// on a first launch. The released Fish stays saved until the new one is
-// named, so quitting before then keeps it.
+// release lets the Fish go at the end of its farewell, and the Species
+// picker opens for a new Fish, as on a first launch. The released Fish stays
+// saved until the new one is named, so quitting before then keeps it.
 func (m Model) release() Model {
 	if m.tank != nil {
 		m.tank.Clear() // the picker shows a new Fish in a fresh Tank
 	}
-	return m.startPicking()
+	return m.startPicking(picking)
 }
