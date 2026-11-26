@@ -192,6 +192,14 @@ func (t *Tank) Reshape(b Body) {
 	t.fish.settle()
 }
 
+// Clear takes away all the Food, bubbles, hearts and notes, as for a new
+// Fish, and leaves the Scenery as it is.
+func (t *Tank) Clear() {
+	t.food = nil
+	t.decor.bubbles, t.decor.flourishes = nil, nil
+	t.fish.settle()
+}
+
 // Drop puts Food of kind k into the Tank at the cell col, row. Food dropped
 // into the floor or seaweed rests on top of it. It reports false, and drops
 // nothing, if the cell is outside the Tank or the Tank already holds MaxFood.

@@ -25,6 +25,9 @@ type Scene struct {
 	// Picking is the Species shown on the Species picker, which takes the
 	// status line's place. NoSpecies shows the status line.
 	Picking fish.Species
+	// Releasing is set while the user is asked to confirm releasing the Fish,
+	// which takes the status line's place.
+	Releasing bool
 }
 
 // Status is what the status line shows.
@@ -47,8 +50,11 @@ func Screen(sc Scene) string {
 	}
 	water := g.rows()
 	bottom := statusLine(sc.Status, sc.Tank.Width)
-	if sc.Picking != fish.NoSpecies {
+	switch {
+	case sc.Picking != fish.NoSpecies:
 		bottom = pickerLine(sc.Picking, sc.Tank.Width)
+	case sc.Releasing:
+		bottom = fit(" Release "+sc.Status.Name+" to the sea? y/N", sc.Tank.Width)
 	}
 	return strings.Join(append(water, bottom), "\n")
 }
@@ -122,7 +128,7 @@ func drawGreeting(g grid, text string, food []tank.Food) {
 }
 
 // keyHint teaches the controls at the right end of the status line.
-const keyHint = "click/f feed · 1-3 food · q quit"
+const keyHint = "click/f feed · 1-3 food · r release · q quit"
 
 // saveFailed takes the key hint's place while the Fish can't be saved.
 const saveFailed = "⚠ couldn't save"

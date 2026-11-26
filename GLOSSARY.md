@@ -5,8 +5,12 @@ A virtual pet fish that lives in the terminal. You keep it fed, and it carries o
 ## Language
 
 **Fish**:
-The one pet a user owns. It has a name, is never deleted, and cannot die.
+The one pet a user owns. It has a name, is never deleted unless the user releases it, and cannot die.
 _Avoid_: Pet, tamagotchi, creature
+
+**Release**:
+Letting the Fish go for good, so that the user can start a new Fish. The released Fish is not kept anywhere, and the new Fish is a new Fish, not the old one with another Species.
+_Avoid_: Delete, reset, abandon, rehome
 
 **Species**:
 What kind of fish the Fish is, such as a clownfish or a goldfish. A Fish has one Species for life, and its Species decides its colours.

@@ -43,6 +43,9 @@ type phase int
 const (
 	// inTank: the Fish is living in its Tank.
 	inTank phase = iota
+	// confirming: the Fish is living in its Tank, and the user is asked
+	// whether to release it.
+	confirming
 	// picking: the Species picker is up, choosing a Species either for a new
 	// Fish or for a Fish saved before Species existed.
 	picking
@@ -128,7 +131,20 @@ func (m Model) species() fish.Species {
 // startPicking opens the Species picker on the first Species.
 func (m Model) startPicking() Model {
 	m.phase, m.pick = picking, 0
+	if m.tank != nil {
+		m.tank.Reshape(tank.BodyOf(m.species()))
+	}
 	return m
+}
+
+// shown is the Fish drawn in the Tank: the saved Fish while it lives there,
+// or is having its Species chosen, and otherwise a Fish yet to be hatched,
+// so the picker and naming prompt for a new Fish show nothing of an old one.
+func (m Model) shown() fish.Fish {
+	if m.hasFish() || m.awaitingSpecies() {
+		return m.fish
+	}
+	return fish.Fish{}
 }
 
 // startNaming opens an empty naming prompt for a new Fish of Species s.
@@ -219,7 +235,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.fish = m.fish.CatchUp(m.now)
 		}
 		if m.tank != nil {
-			if meals := m.tank.Step(FrameInterval, m.fish.Mood(), !m.hasFish() || m.fish.Full()); len(meals) > 0 {
+			if meals := m.tank.Step(FrameInterval, m.shown().Mood(), !m.hasFish() || m.fish.Full()); len(meals) > 0 {
 				for _, meal := range meals {
 					m.fish = m.fish.Eat(meal.Kind)
 				}
@@ -232,6 +248,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.MouseMsg:
+		if m.phase == confirming && msg.Action == tea.MouseActionPress {
+			m.phase = inTank // a click only cancels the confirmation
+			return m, nil
+		}
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && m.tankShown() {
 			m.tank.Drop(m.foodKind, msg.X, msg.Y)
 		}
@@ -244,6 +264,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updatePicking(msg)
 		case naming:
 			return m.updateNaming(msg)
+		case confirming:
+			return m.updateConfirming(msg)
 		}
 		// Keys typed in quick succession arrive as one message: act on each.
 		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 {
@@ -266,6 +288,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "1", "2", "3":
 			m.foodKind = fish.FoodKinds[key[0]-'1']
+		case "r":
+			m.phase = confirming
 		}
 	}
 	return m, nil
@@ -301,7 +325,7 @@ func (m Model) View() string {
 	}
 	sc := render.Scene{
 		Tank: m.tank.Snapshot(),
-		Look: render.Look{Art: m.species().Art(), Mood: m.fish.Mood(), Monochrome: m.deps.Monochrome},
+		Look: render.Look{Art: m.species().Art(), Mood: m.shown().Mood(), Monochrome: m.deps.Monochrome},
 		Status: render.Status{
 			Name:       m.fish.Name,
 			Hunger:     m.fish.Hunger,
@@ -310,8 +334,11 @@ func (m Model) View() string {
 			SaveFailed: m.saveErr != nil,
 		},
 	}
-	if m.phase == picking {
+	switch m.phase {
+	case picking:
 		sc.Picking = m.species()
+	case confirming:
+		sc.Releasing = true
 	}
 	if m.now.Before(m.greetUntil) {
 		sc.Away = m.away
@@ -363,6 +390,9 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.fish, m.phase = f, inTank
+		if m.tank != nil {
+			m.tank.Clear() // nothing is left over from a released Fish
+		}
 		m = m.save(f.Born)
 	case tea.KeyBackspace:
 		if len(m.name) > 0 {
@@ -375,9 +405,12 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // hasFish reports whether a Fish is living in this Tank: it has a Species,
-// has been named and loaded without error, and this launch holds the lock. A
-// refused launch has no Fish of its own, so it never saves.
-func (m Model) hasFish() bool { return m.refusal == "" && m.phase == inTank && m.err == nil }
+// has been named and loaded without error, and this launch holds the lock.
+// The Fish lives on, and is saved, while the user is asked whether to
+// release it. A refused launch has no Fish of its own, so it never saves.
+func (m Model) hasFish() bool {
+	return m.refusal == "" && (m.phase == inTank || m.phase == confirming) && m.err == nil
+}
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
 // and writes it to the data folder. A failed save leaves the Tank open, with
@@ -388,4 +421,26 @@ func (m Model) save(now time.Time) Model {
 	m.lastSaved = now
 	m.saveErr = store.Save(m.deps.DataDir, m.fish)
 	return m
+}
+
+// updateConfirming handles a key while the user is asked whether to release
+// the Fish: y releases it and Ctrl-C quits. Every other key, q and Esc
+// included, only cancels.
+func (m Model) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "y":
+		return m.release(), nil
+	}
+	m.phase = inTank
+	return m, nil
+}
+
+// release lets the Fish go, and the Species picker opens for a new Fish, as
+// on a first launch. The released Fish stays saved until the new one is
+// named, so quitting before then keeps it.
+func (m Model) release() Model {
+	m.greetUntil = time.Time{}
+	return m.startPicking()
 }

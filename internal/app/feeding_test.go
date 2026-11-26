@@ -111,11 +111,11 @@ func TestPelletIsSelectedAtFirst(t *testing.T) {
 	}
 }
 
-// In an 80-column window there is room for the Food Kind's name or the key
+// In a 92-column window there is room for the Food Kind's name or the key
 // hint, not both: the Food Kind is shown by its glyph and the hint stays.
 func TestSelectedFoodKindLeavesRoomForTheKeyHint(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(80, 24)
+	h.resize(92, 24)
 	h.press("3")
 
 	status := h.statusLine()

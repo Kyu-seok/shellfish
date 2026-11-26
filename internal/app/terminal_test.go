@@ -176,11 +176,11 @@ func TestColourTankDoesDrawColour(t *testing.T) {
 	}
 }
 
-const keyHint = "click/f feed · 1-3 food · q quit"
+const keyHint = "click/f feed · 1-3 food · r release · q quit"
 
 func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(80, 24)
+	h.resize(100, 24)
 
 	got := h.view()
 	status := got[len(got)-1]
