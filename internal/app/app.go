@@ -46,6 +46,8 @@ const (
 	// confirming: the Fish is living in its Tank, and the user is asked
 	// whether to release it.
 	confirming
+	// farewell: the released Fish is swimming out of its Tank, saying bye.
+	farewell
 	// picking: the Species picker is up, choosing a Species either for a new
 	// Fish or for a Fish saved before Species existed.
 	picking
@@ -76,6 +78,7 @@ type Model struct {
 	refusal    string        // why this launch was refused, if another Tank is open
 	away       time.Duration // how long the user was away, if long enough to greet them
 	greetUntil time.Time     // when the greeting goes away by itself
+	byeUntil   time.Time     // when the farewell ends and the picker opens
 	foodKind   fish.FoodKind // what a click or f drops
 	quitting   bool          // the user has closed the Tank
 }
@@ -246,6 +249,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if since := m.now.Sub(m.lastSaved); m.hasFish() && (since >= SaveInterval || since < 0) {
 			m = m.save(m.now)
 		}
+		if m.phase == farewell && !m.now.Before(m.byeUntil) {
+			m = m.release()
+		}
 		return m, m.deps.Clock.Tick(FrameInterval)
 	case tea.MouseMsg:
 		if m.phase == confirming && msg.Action == tea.MouseActionPress {
@@ -266,6 +272,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateNaming(msg)
 		case confirming:
 			return m.updateConfirming(msg)
+		case farewell:
+			if msg.Type == tea.KeyCtrlC {
+				return m.quit()
+			}
+			return m, nil // the Fish is leaving: nothing else stops it
 		}
 		// Keys typed in quick succession arrive as one message: act on each.
 		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 {
@@ -302,10 +313,10 @@ func tankArea(width, height int) (w, h int) {
 	return width, max(height-render.StatusRows, 0)
 }
 
-// tankShown reports whether the Tank is open and drawn, so Food can be
-// dropped into it.
+// tankShown reports whether the Fish is in its open Tank and the Tank is
+// drawn, so Food can be dropped into it.
 func (m Model) tankShown() bool {
-	return m.hasFish() && m.tank != nil && m.width >= MinTankWidth && m.height >= MinTankHeight
+	return m.hasFish() && m.phase == inTank && m.tank != nil && m.width >= MinTankWidth && m.height >= MinTankHeight
 }
 
 // View draws the Tank to fill the window, with the status line below it,
@@ -339,6 +350,8 @@ func (m Model) View() string {
 		sc.Picking = m.species()
 	case confirming:
 		sc.Releasing = true
+	case farewell:
+		sc.Farewell = true
 	}
 	if m.now.Before(m.greetUntil) {
 		sc.Away = m.away
@@ -407,9 +420,10 @@ func (m Model) updateNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // hasFish reports whether a Fish is living in this Tank: it has a Species,
 // has been named and loaded without error, and this launch holds the lock.
 // The Fish lives on, and is saved, while the user is asked whether to
-// release it. A refused launch has no Fish of its own, so it never saves.
+// release it and while it swims away. A refused launch has no Fish of its
+// own, so it never saves.
 func (m Model) hasFish() bool {
-	return m.refusal == "" && (m.phase == inTank || m.phase == confirming) && m.err == nil
+	return m.refusal == "" && (m.phase == inTank || m.phase == confirming || m.phase == farewell) && m.err == nil
 }
 
 // save brings the Fish up to date at now, marks the Tank as last seen then,
@@ -431,16 +445,29 @@ func (m Model) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m.quit()
 	case "y":
-		return m.release(), nil
+		return m.sayBye(), nil
 	}
 	m.phase = inTank
 	return m, nil
+}
+
+// sayBye starts the farewell: the Fish swims out of its Tank, and the Tank
+// stays live until the farewell ends and the Fish is released.
+func (m Model) sayBye() Model {
+	m.phase, m.byeUntil = farewell, m.deps.Clock.Now().Add(FarewellDuration)
+	m.greetUntil = time.Time{} // the Tank says bye now, not welcome back
+	if m.tank != nil {
+		m.tank.Leave(FarewellSwim)
+	}
+	return m
 }
 
 // release lets the Fish go, and the Species picker opens for a new Fish, as
 // on a first launch. The released Fish stays saved until the new one is
 // named, so quitting before then keeps it.
 func (m Model) release() Model {
-	m.greetUntil = time.Time{}
+	if m.tank != nil {
+		m.tank.Clear() // the picker shows a new Fish in a fresh Tank
+	}
 	return m.startPicking()
 }

@@ -23,3 +23,11 @@ const GreetAfter = time.Hour
 
 // GreetingDuration is how long the welcome-back greeting stays up.
 const GreetingDuration = 5 * time.Second
+
+// FarewellDuration is how long the farewell lasts after the user releases
+// their Fish, before the Species picker opens.
+const FarewellDuration = 2 * time.Second
+
+// FarewellSwim is how long the released Fish takes to swim out of its Tank,
+// leaving the rest of the farewell to say bye to an empty Tank.
+const FarewellSwim = 1500 * time.Millisecond

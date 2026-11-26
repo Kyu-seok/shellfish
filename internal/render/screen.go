@@ -28,6 +28,9 @@ type Scene struct {
 	// Releasing is set while the user is asked to confirm releasing the Fish,
 	// which takes the status line's place.
 	Releasing bool
+	// Farewell is set while the released Fish swims away, saying bye in the
+	// status line's place.
+	Farewell bool
 }
 
 // Status is what the status line shows.
@@ -55,6 +58,8 @@ func Screen(sc Scene) string {
 		bottom = pickerLine(sc.Picking, sc.Tank.Width)
 	case sc.Releasing:
 		bottom = fit(" Release "+sc.Status.Name+" to the sea? y/N", sc.Tank.Width)
+	case sc.Farewell:
+		bottom = fit(" Bye, "+sc.Status.Name+"!", sc.Tank.Width)
 	}
 	return strings.Join(append(water, bottom), "\n")
 }

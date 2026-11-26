@@ -101,11 +101,13 @@ func TestTheTankStaysLiveDuringTheConfirmation(t *testing.T) {
 	}
 }
 
-// release answers y to the confirmation, so the picker opens for a new Fish.
+// release answers y to the confirmation and waits out the farewell, so the
+// picker opens for a new Fish.
 func (h *harness) release() {
 	h.t.Helper()
 	h.press("r")
 	h.press("y")
+	h.advance(app.FarewellDuration)
 }
 
 // bubbles counts the bubbles drawn in the water, leaving out the Fish.

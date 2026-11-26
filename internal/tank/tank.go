@@ -134,6 +134,12 @@ type swimmer struct {
 	// where its mouth meets that Food.
 	chasing   bool
 	mouthOpen bool
+	// leaving is set once the Fish is swimming out of the Tank for good,
+	// from leaveFrom, leaveDist columns towards the way it faces, over
+	// leaveTime seconds; leftFor is how long it has been on its way.
+	leaving              bool
+	leaveFrom, leaveDist float64
+	leaveTime, leftFor   float64
 }
 
 // settle stops the Fish where it is, to hover before it picks somewhere new
@@ -147,9 +153,7 @@ func (f *swimmer) settle() {
 func New(r *rand.Rand, width, height int, body Body) *Tank {
 	t := &Tank{rand: r, body: body}
 	t.Resize(width, height)
-	t.fish.x = float64((t.width - body.Width + 1) / 2)
-	t.fish.y = float64((t.waterRows() - body.Height) / 2)
-	t.keepFishInside()
+	t.centreFish()
 	// Decorations draw from their own source, seeded last so the seaweed is
 	// the same as without them.
 	t.decor = newDecor(rand.New(rand.NewPCG(r.Uint64(), r.Uint64())))
@@ -162,9 +166,11 @@ func (t *Tank) Resize(width, height int) {
 	t.width, t.height = width, height
 	t.growSeaweed()
 	t.placeShells()
-	t.keepFishInside()
+	if !t.fish.leaving { // a Fish on its way out stays on its way
+		t.keepFishInside()
+		t.fish.settle()
+	}
 	t.trimDecor()
-	t.fish.settle()
 	t.food = slices.DeleteFunc(t.food, func(fd food) bool { return int(fd.x) >= t.width })
 	for i := range t.food {
 		fd := &t.food[i]
@@ -193,11 +199,57 @@ func (t *Tank) Reshape(b Body) {
 }
 
 // Clear takes away all the Food, bubbles, hearts and notes, as for a new
-// Fish, and leaves the Scenery as it is.
+// Fish, and leaves the Scenery as it is. A Fish that has left comes back,
+// in the middle of the Tank, as the new Fish.
 func (t *Tank) Clear() {
 	t.food = nil
 	t.decor.bubbles, t.decor.flourishes = nil, nil
+	if t.fish.leaving {
+		t.fish.leaving = false
+		t.centreFish()
+	}
 	t.fish.settle()
+}
+
+// centreFish puts the Fish in the middle of the water, or the nearest place
+// it fits.
+func (t *Tank) centreFish() {
+	t.fish.x = float64((t.width - t.body.Width + 1) / 2)
+	t.fish.y = float64((t.waterRows() - t.body.Height) / 2)
+	t.keepFishInside()
+}
+
+// Leave sends the Fish out of the Tank for good, as when it is released: it
+// turns to the nearer side, speeds up and swims out past the edge within d,
+// and is then drawn no more. It ignores Food on its way.
+func (t *Tank) Leave(d time.Duration) {
+	f := &t.fish
+	f.settle()
+	f.mouthOpen = false
+	f.facingLeft = f.x+float64(t.body.Width)/2 < float64(t.width)/2
+	f.leaving, f.leaveFrom, f.leaveTime, f.leftFor = true, f.x, max(d.Seconds(), 1e-9), 0
+	if f.facingLeft {
+		f.leaveDist = f.x + float64(t.body.Width) // until its box's right edge is past column 0
+	} else {
+		f.leaveDist = float64(t.width) - f.x
+	}
+}
+
+// leave moves a Fish on its way out by s seconds, speeding up evenly from a
+// standstill so that it is out of the Tank by the time it was given.
+func (t *Tank) leave(s float64) {
+	f := &t.fish
+	f.leftFor = min(f.leftFor+s, f.leaveTime)
+	k := f.leftFor / f.leaveTime
+	dir := 1.0
+	if f.facingLeft {
+		dir = -1
+	}
+	f.x = f.leaveFrom + dir*f.leaveDist*k*k
+	f.vx, f.vy = 0, 0
+	if k < 1 {
+		f.vx = dir * 2 * f.leaveDist * k / f.leaveTime
+	}
 }
 
 // Drop puts Food of kind k into the Tank at the cell col, row. Food dropped
@@ -245,6 +297,11 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	t.settleFood(s)
 	f := &t.fish
 	f.bob += s * 2 * math.Pi / BobPeriod
+	if f.leaving {
+		t.leave(s)
+		f.tail += s * (TailBaseRate + TailRatePerSpeed*math.Abs(f.vx))
+		return nil
+	}
 	t.chase(full)
 	t.droop()
 	switch f.mode {
