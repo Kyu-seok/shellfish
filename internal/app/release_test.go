@@ -300,3 +300,39 @@ func TestQuittingBeforeTheNewFishIsNamedKeepsTheOldFish(t *testing.T) {
 		})
 	}
 }
+
+func TestRDoesNothingWhenTheSaveFileCantBeRead(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "fish.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, withDataDir(dir))
+	h.resize(100, 24)
+	h.press("r")
+	h.press("y")
+	h.advance(app.FarewellDuration)
+	h.press("enter")
+	h.nameFish("Nemo")
+
+	if got, _ := os.ReadFile(path); string(got) != "{not json" {
+		t.Errorf("r, y and a name on the load-failure screen wrote over the unreadable save file: %s", got)
+	}
+}
+
+func TestRInAWindowTooSmallForTheTankArmsNothing(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	h.resize(20, 5)
+	h.press("r")
+	h.resize(100, 24)
+
+	if got := h.statusLine(); strings.Contains(got, "Release") {
+		t.Errorf("r in a too-small window armed the confirmation: %q", got)
+	}
+	h.resize(20, 5)
+	h.press("r")
+	h.press("q")
+	if !h.quitRequested() {
+		t.Error("q after r in a too-small window didn't quit")
+	}
+}

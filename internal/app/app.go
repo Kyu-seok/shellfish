@@ -300,7 +300,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "1", "2", "3":
 			m.foodKind = fish.FoodKinds[key[0]-'1']
 		case "r":
-			m.phase = confirming
+			if m.tankShown() {
+				m.phase = confirming
+			}
 		}
 	}
 	return m, nil
