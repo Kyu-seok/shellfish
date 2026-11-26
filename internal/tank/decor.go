@@ -95,8 +95,9 @@ func (t *Tank) decorate(s float64, mood fish.Mood) {
 		}
 	}
 
-	if mood != fish.Content || f.leaving {
-		return // only a Content Fish, staying, blows bubbles and shows hearts and notes
+	// Only a Content Fish, staying, blows bubbles and shows hearts and notes.
+	if mood != fish.Content || f.leaving != nil {
+		return
 	}
 	row := t.fishRow()
 	if d.puffIn -= s; d.puffIn <= 0 {

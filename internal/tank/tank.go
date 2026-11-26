@@ -134,12 +134,17 @@ type swimmer struct {
 	// where its mouth meets that Food.
 	chasing   bool
 	mouthOpen bool
-	// leaving is set once the Fish is swimming out of the Tank for good,
-	// from leaveFrom, leaveDist columns towards the way it faces, over
-	// leaveTime seconds; leftFor is how long it has been on its way.
-	leaving              bool
-	leaveFrom, leaveDist float64
-	leaveTime, leftFor   float64
+	// leaving is how the Fish is swimming out of the Tank for good, or nil
+	// while it stays.
+	leaving *departure
+}
+
+// departure is a Fish's way out of the Tank: from column from, dist columns
+// towards the way it faces, over time seconds.
+type departure struct {
+	from, dist float64
+	time       float64
+	elapsed    float64 // how long it has been on its way, in seconds
 }
 
 // settle stops the Fish where it is, to hover before it picks somewhere new
@@ -166,7 +171,7 @@ func (t *Tank) Resize(width, height int) {
 	t.width, t.height = width, height
 	t.growSeaweed()
 	t.placeShells()
-	if !t.fish.leaving { // a Fish on its way out stays on its way
+	if t.fish.leaving == nil { // a Fish on its way out stays on its way
 		t.keepFishInside()
 		t.fish.settle()
 	}
@@ -204,8 +209,8 @@ func (t *Tank) Reshape(b Body) {
 func (t *Tank) Clear() {
 	t.food = nil
 	t.decor.bubbles, t.decor.flourishes = nil, nil
-	if t.fish.leaving {
-		t.fish.leaving = false
+	if t.fish.leaving != nil {
+		t.fish.leaving = nil
 		t.centreFish()
 	}
 	t.fish.settle()
@@ -227,28 +232,27 @@ func (t *Tank) Leave(d time.Duration) {
 	f.settle()
 	f.mouthOpen = false
 	f.facingLeft = f.x+float64(t.body.Width)/2 < float64(t.width)/2
-	f.leaving, f.leaveFrom, f.leaveTime, f.leftFor = true, f.x, max(d.Seconds(), 1e-9), 0
+	dist := float64(t.width) - f.x
 	if f.facingLeft {
-		f.leaveDist = f.x + float64(t.body.Width) // until its box's right edge is past column 0
-	} else {
-		f.leaveDist = float64(t.width) - f.x
+		dist = f.x + float64(t.body.Width) // until its box's right edge is past column 0
 	}
+	f.leaving = &departure{from: f.x, dist: dist, time: max(d.Seconds(), 1e-9)}
 }
 
 // leave moves a Fish on its way out by s seconds, speeding up evenly from a
 // standstill so that it is out of the Tank by the time it was given.
 func (t *Tank) leave(s float64) {
-	f := &t.fish
-	f.leftFor = min(f.leftFor+s, f.leaveTime)
-	k := f.leftFor / f.leaveTime
+	f, l := &t.fish, t.fish.leaving
+	l.elapsed = min(l.elapsed+s, l.time)
+	k := l.elapsed / l.time
 	dir := 1.0
 	if f.facingLeft {
 		dir = -1
 	}
-	f.x = f.leaveFrom + dir*f.leaveDist*k*k
+	f.x = l.from + dir*l.dist*k*k
 	f.vx, f.vy = 0, 0
 	if k < 1 {
-		f.vx = dir * 2 * f.leaveDist * k / f.leaveTime
+		f.vx = dir * 2 * l.dist * k / l.time
 	}
 }
 
@@ -297,7 +301,7 @@ func (t *Tank) Step(dt time.Duration, mood fish.Mood, full bool) []Meal {
 	t.settleFood(s)
 	f := &t.fish
 	f.bob += s * 2 * math.Pi / BobPeriod
-	if f.leaving {
+	if f.leaving != nil {
 		t.leave(s)
 		f.tail += s * (TailBaseRate + TailRatePerSpeed*math.Abs(f.vx))
 		return nil
