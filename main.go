@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +16,9 @@ import (
 
 	"github.com/Kyu-seok/shellfish/internal/app"
 )
+
+// version is stamped in when a version is published (see .goreleaser.yaml).
+var version string
 
 type realClock struct{}
 
@@ -25,6 +29,13 @@ func (realClock) Tick(d time.Duration) tea.Cmd {
 }
 
 func main() {
+	info, _ := debug.ReadBuildInfo()
+	inv := app.Invoke(os.Args[1:], app.Version(version, info))
+	if !inv.Open {
+		fmt.Fprint(os.Stdout, inv.Out)
+		fmt.Fprint(os.Stderr, inv.Err)
+		os.Exit(inv.Status)
+	}
 	code, err := run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "shellfish:", err)
