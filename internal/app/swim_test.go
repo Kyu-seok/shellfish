@@ -130,8 +130,6 @@ func TestFishGlidesSmoothlyAndSometimesDarts(t *testing.T) {
 	}
 }
 
-func abs(n int) int { return max(n, -n) }
-
 func TestTailSwishesFasterWhenSwimmingFaster(t *testing.T) {
 	t.Parallel()
 	const window = 10 // frames, half a second

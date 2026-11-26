@@ -272,11 +272,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		// The window's top-left cell is the Tank's, so the two share coordinates.
-		if _, h := tankArea(m.width, m.height); msg.Y < h {
-			m.tank.MoveHand(msg.X, msg.Y)
-		} else {
-			m.tank.LoseHand() // over the status line
+		// Only the pointer moving with no button held is the Hand, so a
+		// terminal that reports no such motion never has one. The window's
+		// top-left cell is the Tank's, so the two share coordinates.
+		if msg.Action == tea.MouseActionMotion && msg.Button == tea.MouseButtonNone {
+			if _, h := tankArea(m.width, m.height); msg.Y < h {
+				m.tank.MoveHand(msg.X, msg.Y)
+			} else {
+				m.tank.LoseHand() // over the status line
+			}
 		}
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 			// A click on the Fish is a Pat; anywhere else it drops Food.
@@ -329,6 +333,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			if m.tankShown() {
 				m.phase = confirming
+				m.tank.LoseHand() // nothing plays with the Fish while asked
 			}
 		}
 	}

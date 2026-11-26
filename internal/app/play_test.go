@@ -4,28 +4,10 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/Kyu-seok/shellfish/internal/app"
 )
-
-// patFish clicks on the Fish's eye, which is always drawn, and fails the test
-// if there is no Fish to click on.
-func (h *harness) patFish() {
-	h.t.Helper()
-	s, ok := h.find(h.rawView())
-	if !ok {
-		h.t.Fatalf("no Fish to pat:\n%s", h.screen())
-	}
-	x0, y0, _, _ := eyeArea(h.species.Art(), h.body(), s.facingLeft)
-	h.click(s.left+x0, s.top+y0)
-}
-
-// twins are two Tanks that start alike, with the same seed and Hunger, so
-// whatever one does that the other doesn't is the only thing that can make
-// them differ.
-func twins(t *testing.T, after time.Duration) (a, b *harness) {
-	t.Helper()
-	return hungerAfter(t, after, withSeed(7)), hungerAfter(t, after, withSeed(7))
-}
 
 func TestAClickOnTheFishPatsItInsteadOfDroppingFood(t *testing.T) {
 	t.Parallel()
@@ -42,6 +24,26 @@ func TestAClickOnTheFishPatsItInsteadOfDroppingFood(t *testing.T) {
 		if got := h.count(pellet); got != 0 {
 			t.Fatalf("a click on the Fish dropped Food:\n%s", h.screen())
 		}
+	}
+}
+
+// A click on the Fish is a Pat whatever else is in the Tank, even Food.
+func TestAClickOnTheFishIsAPatEvenWithFoodInTheWater(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, named("Bubbles")) // Full, so the Food stays put
+	h.resize(80, 24)
+	h.click(2, h.bottom()) // on the sand in a corner, away from the Fish
+	if got := h.count(pellet); got != 1 {
+		t.Fatalf("the Tank holds %d pellets, want 1:\n%s", got, h.screen())
+	}
+
+	h.patFish()
+	h.advance(200 * time.Millisecond)
+	if got := h.count(pellet); got != 1 {
+		t.Errorf("after a click on the Fish the Tank holds %d pellets, want still 1:\n%s", got, h.screen())
+	}
+	if got := h.count(heart); got != 1 {
+		t.Errorf("a Pat with Food in the water sent up %d hearts, want 1:\n%s", got, h.screen())
 	}
 }
 
@@ -90,41 +92,36 @@ func TestPattingFastSendsUpAtMostAHeartASecond(t *testing.T) {
 	}
 }
 
-// A Starving Fish wiggles when patted, but sends up no heart: it wants
-// feeding first.
+// A Starving Fish wiggles its tail when patted, but sends up no heart: it
+// wants feeding first.
 func TestAPattedStarvingFishWigglesWithoutAHeart(t *testing.T) {
 	t.Parallel()
-	patted, left := twins(t, 22*time.Hour)
+	patted, alone := twins(t, 22*time.Hour)
 	if got := patted.fishMood(); got != "Starving" {
 		t.Fatalf("the Fish is %s, want Starving", got)
 	}
 	patted.patFish()
-	wiggled := false
-	for range int(time.Second / app.FrameInterval) {
-		patted.advance(app.FrameInterval)
-		left.advance(app.FrameInterval)
-		wiggled = wiggled || patted.screen() != left.screen()
+	// How many frames each Fish's tail moved in.
+	swishes := map[*harness]int{}
+	last := map[*harness]float64{}
+	for range int(600 * time.Millisecond / app.FrameInterval) {
+		for _, h := range []*harness{patted, alone} {
+			h.advance(app.FrameInterval)
+			if s, ok := h.find(h.rawView()); ok && s.intact {
+				if s.tailLift != last[h] {
+					swishes[h]++
+				}
+				last[h] = s.tailLift
+			}
+		}
 		if got := patted.count(heart); got != 0 {
 			t.Fatalf("a Pat on a Starving Fish sent up a heart:\n%s", patted.screen())
 		}
 	}
-	if !wiggled {
-		t.Errorf("a patted Starving Fish moved just as one left alone did")
+	if swishes[patted] <= swishes[alone] {
+		t.Errorf("a patted Starving Fish's tail moved in %d frames, one left alone's in %d: want it to wiggle more",
+			swishes[patted], swishes[alone])
 	}
-}
-
-// hand keeps the Hand moving around col, row for d, a frame at a time, and
-// returns where the middle of the Fish was in each frame.
-func (h *harness) hand(col, row int, d time.Duration) (middles [][2]int) {
-	h.t.Helper()
-	for i := range int(d / app.FrameInterval) {
-		h.hover(col+i/int(time.Second/app.FrameInterval)%2, row) // a column across and back each second
-		h.advance(app.FrameInterval)
-		if s, ok := h.find(h.rawView()); ok {
-			middles = append(middles, [2]int{s.left + h.body().Width/2, s.top + h.body().Height/2})
-		}
-	}
-	return middles
 }
 
 func TestTheFishWandersNearAMovingHand(t *testing.T) {
@@ -133,9 +130,9 @@ func TestTheFishWandersNearAMovingHand(t *testing.T) {
 		h := hungerAfter(t, after)
 		h.resize(120, 30)
 
-		middles := h.hand(105, 8, 30*time.Second)
+		middles := h.waveHand(105, 8, 30*time.Second)
 		for _, m := range middles[len(middles)-int(8*time.Second/app.FrameInterval):] {
-			if abs(m[0]-105) > 16 || abs(m[1]-8) > 5 {
+			if abs(m.col-105) > 16 || abs(m.row-8) > 5 {
 				t.Fatalf("after %v, with the Hand moving at (105, 8) for 30s, the middle of the Fish was at %v:\n%s",
 					after, m, h.screen())
 			}
@@ -149,12 +146,12 @@ func TestCuriosityFadesWhileTheHandIsStill(t *testing.T) {
 	t.Parallel()
 	h := hungerAfter(t, 6*time.Hour)
 	h.resize(120, 30)
-	h.hand(105, 8, 20*time.Second)
+	h.waveHand(105, 8, 20*time.Second)
 
 	strayed := false
 	for range int(60 * time.Second / app.FrameInterval) { // the Hand stays at (105, 8)
 		h.advance(app.FrameInterval)
-		if s, ok := h.find(h.rawView()); ok && s.left+h.body().Width/2 < 105-40 {
+		if s, ok := h.find(h.rawView()); ok && h.middle(s).col < 105-40 {
 			strayed = true
 			break
 		}
@@ -163,8 +160,8 @@ func TestCuriosityFadesWhileTheHandIsStill(t *testing.T) {
 		t.Fatalf("with the Hand still for a minute, the Fish never wandered away from it:\n%s", h.screen())
 	}
 
-	middles := h.hand(105, 8, 30*time.Second)
-	if m := middles[len(middles)-1]; abs(m[0]-105) > 16 {
+	middles := h.waveHand(105, 8, 30*time.Second)
+	if m := middles[len(middles)-1]; abs(m.col-105) > 16 {
 		t.Errorf("30s after the Hand moved again the middle of the Fish was at %v, far from it:\n%s", m, h.screen())
 	}
 }
@@ -173,7 +170,7 @@ func TestFoodComesBeforeTheHand(t *testing.T) {
 	t.Parallel()
 	h := hungerAfter(t, 12*time.Hour)
 	h.resize(120, 30)
-	h.hand(105, 8, 15*time.Second)
+	h.waveHand(105, 8, 15*time.Second)
 
 	h.click(4, 4)
 	ate := false
@@ -186,8 +183,8 @@ func TestFoodComesBeforeTheHand(t *testing.T) {
 	}
 }
 
-// Where the Hand has no Curiosity to draw, a Tank with it moving runs
-// exactly as one without it.
+// Where the Hand draws no Curiosity, a Tank with it moving runs exactly as
+// one without it.
 func TestTheHandIsIgnored(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -200,17 +197,71 @@ func TestTheHandIsIgnored(t *testing.T) {
 		{"over the status line", 6 * time.Hour, func(*harness) {}, func(h *harness) int { return len(h.view()) - 1 }},
 		{"while releasing is asked about", 6 * time.Hour, func(h *harness) { h.press("r") }, func(*harness) int { return 8 }},
 	} {
-		moved, left := twins(t, tc.after)
-		for _, h := range []*harness{moved, left} {
+		moved, alone := twins(t, tc.after)
+		for _, h := range []*harness{moved, alone} {
 			h.resize(120, 30)
 			tc.setUp(h)
 		}
 		for i := range int(20 * time.Second / app.FrameInterval) {
 			moved.hover(100+i%7, tc.row(moved))
 			moved.advance(app.FrameInterval)
-			left.advance(app.FrameInterval)
-			if moved.screen() != left.screen() {
-				t.Fatalf("%s, the Hand changed the Tank at frame %d:\n%s\nwant:\n%s", tc.name, i, moved.screen(), left.screen())
+			alone.advance(app.FrameInterval)
+			if moved.screen() != alone.screen() {
+				t.Fatalf("%s, the Hand changed the Tank at frame %d:\n%s\nwant:\n%s", tc.name, i, moved.screen(), alone.screen())
+			}
+		}
+	}
+}
+
+// The Hand is gone as soon as releasing is asked about, even if the pointer
+// was moving over the Tank just before and stays there.
+func TestAskingToReleaseTakesTheHandAway(t *testing.T) {
+	t.Parallel()
+	stayed, gone := twins(t, 6*time.Hour)
+	for _, h := range []*harness{stayed, gone} {
+		h.resize(120, 30)
+		h.hover(15, 20) // far from where the Fish starts
+		h.advance(app.FrameInterval)
+	}
+	gone.hover(15, len(gone.view())-1) // off the Tank, onto the status line
+	for _, h := range []*harness{stayed, gone} {
+		h.press("r")
+	}
+	for i := range int(20 * time.Second / app.FrameInterval) {
+		stayed.advance(app.FrameInterval)
+		gone.advance(app.FrameInterval)
+		if stayed.screen() != gone.screen() {
+			t.Fatalf("while releasing was asked about, a Hand left over the Tank changed it at frame %d:\n%s\nwant:\n%s",
+				i, stayed.screen(), gone.screen())
+		}
+	}
+}
+
+// Only the pointer moving with no button held is the Hand. In a terminal that
+// reports nothing else, the Fish wanders just as it did before there was one.
+func TestOnlyMovingThePointerIsTheHand(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		do   func(h *harness)
+	}{
+		{"a click", func(h *harness) { h.click(100, 8) }},
+		{"a drag", func(h *harness) {
+			h.send(tea.MouseMsg{X: 100, Y: 8, Action: tea.MouseActionMotion, Button: tea.MouseButtonLeft})
+		}},
+	} {
+		// Full, so the Fish leaves the Food a click drops alone.
+		done, gone := newHarness(t, named("Bubbles"), withSeed(7)), newHarness(t, named("Bubbles"), withSeed(7))
+		for _, h := range []*harness{done, gone} {
+			h.resize(120, 30)
+			tc.do(h)
+		}
+		gone.hover(100, len(gone.view())-1) // any Hand it made is gone again
+		for i := range int(10 * time.Second / app.FrameInterval) {
+			done.advance(app.FrameInterval)
+			gone.advance(app.FrameInterval)
+			if done.screen() != gone.screen() {
+				t.Fatalf("%s made the Fish curious about it at frame %d:\n%s\nwant:\n%s", tc.name, i, done.screen(), gone.screen())
 			}
 		}
 	}

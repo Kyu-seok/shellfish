@@ -13,10 +13,12 @@ const (
 	Accel = 10.0
 	// VerticalScale scales speeds and accelerations for up-and-down movement.
 	VerticalScale = 0.4
+	// MaxSpeed is the fastest the Fish ever swims, so that it never skips a
+	// cell between frames. Any faster top speed is cut down to it.
+	MaxSpeed = 20.0
 	// DartChance is the chance that a trip is a quick dart ahead, of DartMin
 	// to DartMax columns, rising or sinking by up to DartRise rows, at up to
-	// DartSpeed. DartSpeed must stay at or below 20 so the Fish never skips
-	// a cell between frames.
+	// DartSpeed.
 	DartChance = 0.2
 	DartMin    = 10.0
 	DartMax    = 18.0
@@ -103,9 +105,7 @@ const (
 // The Fish going for Food.
 const (
 	// ChaseSpeed and ChaseAccel are the Fish's top speed and acceleration on
-	// its way to Food, before its Mood's eagerness scales them. ChaseSpeed
-	// times the greatest eagerness must stay at or below 20 so the Fish never
-	// skips a cell between frames.
+	// its way to Food, before its Mood's eagerness scales them.
 	ChaseSpeed = 12.0
 	ChaseAccel = 24.0
 	// ReverseSpeed is how fast the Fish can back up to line its mouth up with
@@ -221,10 +221,4 @@ const (
 	// middle of the Fish wanders to while it is curious.
 	CuriousCols = 6.0
 	CuriousRows = 1.5
-	// CuriousPause scales how long a curious Fish hovers between trips, so it
-	// keeps up with a moving Hand.
-	CuriousPause = 0.5
-	// FaceHandGap is how far past the front or back of the Fish's box the
-	// Hand must be before a hovering, curious Fish turns to face it.
-	FaceHandGap = 3.0
 )

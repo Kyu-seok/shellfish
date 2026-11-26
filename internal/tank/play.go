@@ -65,7 +65,7 @@ func (t *Tank) curious() bool {
 }
 
 // visitHand starts a cruise to somewhere near the Hand, as quick as the Fish's
-// Mood makes its cruises. It reports false, and starts nothing, if it finds
+// Mood makes its cruises, in place of a cruise to anywhere. It reports false, and starts nothing, if it finds
 // nowhere near it can swim to.
 func (t *Tank) visitHand() bool {
 	f := &t.fish
@@ -84,23 +84,4 @@ func (t *Tank) visitHand() bool {
 		}
 	}
 	return false
-}
-
-// faceHand turns a hovering, curious Fish to face the Hand when it is well
-// behind it.
-func (t *Tank) faceHand() {
-	f := &t.fish
-	if !t.curious() {
-		return
-	}
-	hx := float64(t.hand.col)
-	behind := hx < f.x-FaceHandGap
-	if f.facingLeft {
-		behind = hx > f.x+float64(t.body.Width)+FaceHandGap
-	}
-	if behind {
-		// It turns where it is, with nowhere to swim to after.
-		f.tx, f.ty = f.x, f.y
-		f.mode, f.timer = turning, TurnHold
-	}
 }

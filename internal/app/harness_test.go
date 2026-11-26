@@ -614,6 +614,50 @@ func (h *harness) waitOffFish(col, row int, limit time.Duration) {
 	h.t.Fatalf("the Fish stayed on (%d, %d) for %v:\n%s", col, row, limit, h.screen())
 }
 
+// patFish clicks on the Fish's eye, which is always drawn, and fails the test
+// if there is no Fish to click on.
+func (h *harness) patFish() {
+	h.t.Helper()
+	s, ok := h.find(h.rawView())
+	if !ok {
+		h.t.Fatalf("no Fish to pat:\n%s", h.screen())
+	}
+	x0, y0, _, _ := eyeArea(h.species.Art(), h.body(), s.facingLeft)
+	h.click(s.left+x0, s.top+y0)
+}
+
+// twins are two Tanks that start alike, with the same seed and Hunger, so
+// whatever one is given that the other isn't is the only thing that can make
+// them differ.
+func twins(t *testing.T, after time.Duration) (a, b *harness) {
+	t.Helper()
+	return hungerAfter(t, after, withSeed(7)), hungerAfter(t, after, withSeed(7))
+}
+
+// cell is a cell of the window, counted from its top-left corner.
+type cell struct{ col, row int }
+
+// middle is the cell in the middle of the Fish's box, where s saw it.
+func (h *harness) middle(s sighting) cell {
+	return cell{s.left + h.body().Width/2, s.top + h.body().Height/2}
+}
+
+// waveHand keeps the pointer moving around col, row for d, a column across
+// and back each second, and returns the middle of the Fish in each frame.
+func (h *harness) waveHand(col, row int, d time.Duration) (middles []cell) {
+	h.t.Helper()
+	for i := range int(d / app.FrameInterval) {
+		h.hover(col+i/int(time.Second/app.FrameInterval)%2, row)
+		h.advance(app.FrameInterval)
+		if s, ok := h.find(h.rawView()); ok {
+			middles = append(middles, h.middle(s))
+		}
+	}
+	return middles
+}
+
+func abs(n int) int { return max(n, -n) }
+
 // cellAt is the character drawn at col, row, or "" outside the window.
 func (h *harness) cellAt(col, row int) string {
 	rows := h.view()

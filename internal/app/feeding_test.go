@@ -437,7 +437,26 @@ func TestTheHungrierTheFishTheFasterItGoesForFood(t *testing.T) {
 // notices it, before it darts at it.
 func TestTheFishPausesAsItNoticesFood(t *testing.T) {
 	t.Parallel()
-	h := hungerAfter(t, 6*time.Hour) // Content, so it pauses longest
+	for _, tc := range []struct {
+		mood  string
+		after time.Duration
+		pause int // frames
+	}{
+		{"Content", 6 * time.Hour, 10}, // half a second
+		{"Hungry", 12 * time.Hour, 7},  // a third of a second
+	} {
+		t.Run(tc.mood, func(t *testing.T) {
+			t.Parallel()
+			noticesFood(t, tc.after, tc.pause)
+		})
+	}
+}
+
+// noticesFood checks that a Fish left unfed for after, seeing Food dropped in
+// front of it, holds still for at least pause frames before it eats it.
+func noticesFood(t *testing.T, after time.Duration, pause int) {
+	t.Helper()
+	h := hungerAfter(t, after)
 	h.resize(120, 24)
 	// Wait until the Fish faces a long stretch of water.
 	var s sighting
@@ -475,8 +494,8 @@ func TestTheFishPausesAsItNoticesFood(t *testing.T) {
 	if !ate {
 		t.Fatalf("the Fish never ate the Food at column %d:\n%s", col, h.screen())
 	}
-	if want := 10; longest < want { // half a second
-		t.Errorf("on its way to Food in front of it the Fish stayed in one column for at most %d frames, want a pause of %d", longest, want)
+	if longest < pause {
+		t.Errorf("on its way to Food in front of it the Fish stayed in one column for at most %d frames, want a pause of %d", longest, pause)
 	}
 }
 
