@@ -15,6 +15,7 @@ func isWave(row string) bool {
 }
 
 func TestTheSurfaceIsADriftingWaveLine(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -34,6 +35,7 @@ func TestTheSurfaceIsADriftingWaveLine(t *testing.T) {
 // Food dropped at the top, bubbles rising and hearts and notes floating up
 // all stop below the surface, as does the Fish.
 func TestNothingDrawsOnTheSurface(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := inMood(t, "Content", withSeed(seed))
 		h.resize(80, 24)
@@ -55,6 +57,7 @@ func TestNothingDrawsOnTheSurface(t *testing.T) {
 }
 
 func TestTheFloorIsTexturedSandThatHoldsStill(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -79,6 +82,7 @@ func TestTheFloorIsTexturedSandThatHoldsStill(t *testing.T) {
 }
 
 func TestTwoShellsRestOnTheSandClearOfTheSeaweedAndStayPut(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := newHarness(t, named("Bubbles"), withSeed(seed))
 		h.resize(80, 24)
@@ -147,6 +151,7 @@ func colouredAs(st style, looks ...func(r, g, b int) bool) bool {
 }
 
 func TestTheSceneryIsInColourWithNoBackground(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 

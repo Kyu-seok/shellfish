@@ -24,6 +24,7 @@ func eachSpecies(t *testing.T, check func(t *testing.T, sp fish.Species)) {
 }
 
 func TestEverySpeciesEyeShowsItsMoodAndBlinks(t *testing.T) {
+	t.Parallel()
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		for _, mood := range []string{"Content", "Hungry", "Starving"} {
 			h := inMood(t, mood, as(sp))
@@ -47,6 +48,7 @@ func TestEverySpeciesEyeShowsItsMoodAndBlinks(t *testing.T) {
 }
 
 func TestEverySpeciesOpensItsMouthAndEatsWithIt(t *testing.T) {
+	t.Parallel()
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		h := hungerAfter(t, 12*time.Hour, as(sp)) // Hungry
 		s, ok := h.find(h.rawView())
@@ -107,6 +109,7 @@ func TestEverySpeciesOpensItsMouthAndEatsWithIt(t *testing.T) {
 }
 
 func TestEverySpeciesSwimsWholeFacingAheadAndOverTheTallestStalk(t *testing.T) {
+	t.Parallel()
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		for seed := range uint64(2) {
 			h := newHarness(t, as(sp), withSeed(seed), named("Bubbles"))
@@ -144,6 +147,7 @@ func TestEverySpeciesSwimsWholeFacingAheadAndOverTheTallestStalk(t *testing.T) {
 }
 
 func TestEverySpeciesStaysInsideTheTankAsItIsResized(t *testing.T) {
+	t.Parallel()
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		h := newHarness(t, as(sp), named("Bubbles"))
 		h.resize(160, 50)
@@ -163,6 +167,7 @@ func TestEverySpeciesStaysInsideTheTankAsItIsResized(t *testing.T) {
 // grows in: one stalk with the fewest columns it allows on either side, and
 // one stalk against a wall.
 func TestEverySpeciesReachesFoodOnEveryColumnOfTheFloor(t *testing.T) {
+	t.Parallel()
 	sizes := []struct{ w, h int }{
 		{2*tank.SeaweedGap + tank.SeaweedWidth, 16},
 		{tank.SeaweedGap + tank.SeaweedWidth + 3, 12},
@@ -190,6 +195,7 @@ func TestEverySpeciesReachesFoodOnEveryColumnOfTheFloor(t *testing.T) {
 // In monochrome every Species is a plain silhouette with its eye a hole
 // in it, closed all round, facing either way.
 func TestEverySpeciesHasAHoleForItsEyeInMonochrome(t *testing.T) {
+	t.Parallel()
 	eachSpecies(t, func(t *testing.T, sp fish.Species) {
 		h := newHarness(t, as(sp), named("Bubbles"), monochrome())
 		h.resize(80, 24)

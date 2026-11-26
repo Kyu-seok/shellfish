@@ -47,6 +47,7 @@ func readSave(t *testing.T, dataDir string) savedFish {
 }
 
 func TestNamingSavesAFullFishOfItsSpecies(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(40, 10)
 	h.press("enter") // a clownfish, the picker's first Species
@@ -79,6 +80,7 @@ func TestNamingSavesAFullFishOfItsSpecies(t *testing.T) {
 }
 
 func TestNamingCreatesAMissingDataFolder(t *testing.T) {
+	t.Parallel()
 	dir := filepath.Join(t.TempDir(), "nested", "shellfish")
 	newHarness(t, withDataDir(dir), named("Bubbles"))
 
@@ -88,6 +90,7 @@ func TestNamingCreatesAMissingDataFolder(t *testing.T) {
 }
 
 func TestLaterLaunchLoadsTheSameFish(t *testing.T) {
+	t.Parallel()
 	first := newHarness(t, named("Bubbles"))
 	saved := readSave(t, first.dataDir)
 	first.press("q")
@@ -108,6 +111,7 @@ func TestLaterLaunchLoadsTheSameFish(t *testing.T) {
 }
 
 func TestUnreadableSaveFileIsReportedNotOverwritten(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fish.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {

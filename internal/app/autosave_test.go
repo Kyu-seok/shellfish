@@ -11,6 +11,7 @@ import (
 )
 
 func TestQuittingSavesTheFish(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"q", "esc", "ctrl+c"} {
 		t.Run(key, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles"))
@@ -34,6 +35,7 @@ func TestQuittingSavesTheFish(t *testing.T) {
 }
 
 func TestQuittingTheNamingPromptSavesNothing(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(50, 12)
 	h.typeText("Bub")
@@ -45,6 +47,7 @@ func TestQuittingTheNamingPromptSavesNothing(t *testing.T) {
 }
 
 func TestTheFishIsSavedAboutOnceAMinuteWhileTheTankIsOpen(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(50, 12)
 
@@ -69,6 +72,7 @@ func TestTheFishIsSavedAboutOnceAMinuteWhileTheTankIsOpen(t *testing.T) {
 }
 
 func TestABrokenSaveFileIsNotOverwrittenWhileOpen(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fish.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {
@@ -85,6 +89,7 @@ func TestABrokenSaveFileIsNotOverwrittenWhileOpen(t *testing.T) {
 }
 
 func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	unblock := h.blockSaves()
@@ -114,6 +119,7 @@ func TestAFailedSaveKeepsTheTankOpenAndIsRetried(t *testing.T) {
 }
 
 func TestAFailedSaveOnQuitExitsWithTheError(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	h.blockSaves()

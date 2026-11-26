@@ -12,6 +12,7 @@ import (
 const farewell = "Bye, Bubbles!"
 
 func TestYSaysByeThenOpensThePicker(t *testing.T) {
+	t.Parallel()
 	for _, opts := range [][]option{{named("Bubbles")}, {named("Bubbles"), monochrome()}} {
 		h := newHarness(t, opts...)
 		h.resize(100, 24)
@@ -36,6 +37,7 @@ func TestYSaysByeThenOpensThePicker(t *testing.T) {
 }
 
 func TestTheFishSwimsOutPastTheNearerSideDuringTheFarewell(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(4) {
 		for _, opts := range [][]option{{}, {monochrome()}} {
 			h := newHarness(t, append(opts, named("Bubbles"), withSeed(seed))...)
@@ -78,6 +80,7 @@ func TestTheFishSwimsOutPastTheNearerSideDuringTheFarewell(t *testing.T) {
 }
 
 func TestKeysAndClicksDoNothingDuringTheFarewell(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"q", "esc", "f", " ", "2", "r", "y", "n", "right", "enter", "click"} {
 		t.Run(key, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles"))
@@ -109,6 +112,7 @@ func TestKeysAndClicksDoNothingDuringTheFarewell(t *testing.T) {
 }
 
 func TestCtrlCDuringTheFarewellQuitsKeepingTheOldFish(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 	h.press("r")

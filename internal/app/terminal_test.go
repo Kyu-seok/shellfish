@@ -16,6 +16,7 @@ const bigger = "Make me a bigger tank 🐟"
 func words(screen string) string { return strings.Join(strings.Fields(screen), " ") }
 
 func TestTooSmallWindowAsksForABiggerTank(t *testing.T) {
+	t.Parallel()
 	for _, size := range []struct{ w, h int }{{29, 10}, {30, 9}, {20, 5}} {
 		h := newHarness(t, named("Bubbles"))
 		h.resize(size.w, size.h)
@@ -31,6 +32,7 @@ func TestTooSmallWindowAsksForABiggerTank(t *testing.T) {
 }
 
 func TestTooSmallMessageIsCentred(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(29, 5)
 
@@ -53,6 +55,7 @@ func TestTooSmallMessageIsCentred(t *testing.T) {
 }
 
 func TestTankReturnsAfterResizingAboveTheMinimum(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(20, 5)
 	h.resize(30, 10)
@@ -68,6 +71,7 @@ func TestTankReturnsAfterResizingAboveTheMinimum(t *testing.T) {
 
 // Hunger and Age both carry on advancing while the Tank can't be drawn.
 func TestLifeCarriesOnWhileTheWindowIsTooSmall(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(20, 5)
 	h.advance(12 * time.Hour)
@@ -96,6 +100,7 @@ func TestLifeCarriesOnWhileTheWindowIsTooSmall(t *testing.T) {
 var colourSGR = regexp.MustCompile(`\x1b\[([0-9]+;)*(3[0-9]|4[0-9]|9[0-7]|10[0-7])[;m]`)
 
 func TestMonochromeDrawsNoColour(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"), monochrome())
 	h.resize(80, 24)
 	for i, key := range []string{"1", "2", "3"} { // a pellet, a flake and a worm
@@ -133,6 +138,7 @@ func TestMonochromeDrawsNoColour(t *testing.T) {
 // In monochrome the Fish is a plain silhouette, with its eye left clear so
 // it still reads as a face.
 func TestMonochromeFishHasAHoleForItsEye(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"), monochrome())
 	h.resize(80, 24)
 	turned := map[bool]bool{}
@@ -155,6 +161,7 @@ func TestMonochromeFishHasAHoleForItsEye(t *testing.T) {
 
 // Fading things are still faint in monochrome: faint is not a colour.
 func TestFadingFoodIsFaintInMonochrome(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"), monochrome()) // Full, so it leaves the Food alone
 	h.resize(80, 24)
 	h.click(5, h.bottom()) // dropped on the sand, so it rests at once
@@ -169,6 +176,7 @@ func TestFadingFoodIsFaintInMonochrome(t *testing.T) {
 }
 
 func TestColourTankDoesDrawColour(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	if !colourSGR.MatchString(strings.Join(h.rawView(), "\n")) {
@@ -184,6 +192,7 @@ const (
 )
 
 func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -209,6 +218,7 @@ func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 }
 
 func TestKeyHintShortensBeforeItMakesWay(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	for _, tc := range []struct {
 		width int
@@ -226,6 +236,7 @@ func TestKeyHintShortensBeforeItMakesWay(t *testing.T) {
 }
 
 func TestKeyHintMakesWayInANarrowTank(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	for _, tc := range []struct {
 		width int

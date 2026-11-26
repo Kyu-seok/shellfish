@@ -54,6 +54,7 @@ func checkLow(t *testing.T, h *harness, seen []sighting, about string) {
 }
 
 func TestAStarvingFishStaysLowInTheTank(t *testing.T) {
+	t.Parallel()
 	sizes := []struct{ w, h int }{{80, 24}, {40, 14}, {60, 18}}
 	for seed := range uint64(6) {
 		size := sizes[seed%uint64(len(sizes))]
@@ -68,6 +69,7 @@ func TestAStarvingFishStaysLowInTheTank(t *testing.T) {
 }
 
 func TestAFishDroopsAsSoonAsItIsStarving(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(4) {
 		h := inMood(t, "Hungry", withSeed(seed)) // Hunger 50
 		h.resize(80, 24)
@@ -90,6 +92,7 @@ func travel(seen []sighting) int {
 }
 
 func TestMoodSetsHowLivelyTheFishIs(t *testing.T) {
+	t.Parallel()
 	moods := []string{"Content", "Hungry", "Starving"}
 	moved := map[string]int{}
 	for _, mood := range moods {
@@ -109,6 +112,7 @@ func TestMoodSetsHowLivelyTheFishIs(t *testing.T) {
 }
 
 func TestTheFishBlinksEveryFewSeconds(t *testing.T) {
+	t.Parallel()
 	second := int(time.Second / app.FrameInterval)
 	for _, mood := range []string{"Content", "Hungry", "Starving"} {
 		for seed := range uint64(2) {
@@ -148,6 +152,7 @@ func heartRow(rows []string) int {
 }
 
 func TestAHeartFloatsUpAfterTheFishEats(t *testing.T) {
+	t.Parallel()
 	h := hungerAfter(t, 12*time.Hour) // Hungry, and still Hungry after a pellet
 	fish, ok := findFish(h.rawView())
 	if !ok {
@@ -199,6 +204,7 @@ func TestAHeartFloatsUpAfterTheFishEats(t *testing.T) {
 }
 
 func TestAContentFishShowsHeartsAndNotesNowAndThen(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := inMood(t, "Content", withSeed(seed))
 		h.resize(80, 24)
@@ -238,6 +244,7 @@ func newBubbles(prev, cur []string) (n int, glyphs []string) {
 }
 
 func TestAContentFishBlowsBubblesThatGrowAsTheyRise(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := inMood(t, "Content", withSeed(seed))
 		h.resize(80, 24)
@@ -264,6 +271,7 @@ func TestAContentFishBlowsBubblesThatGrowAsTheyRise(t *testing.T) {
 }
 
 func TestAStarvingFishBlowsNoBubblesButBubblesStillRise(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := inMood(t, "Starving", withSeed(seed))
 		h.resize(80, 24)

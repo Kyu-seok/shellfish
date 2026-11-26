@@ -15,6 +15,7 @@ import (
 const confirmation = "Release Bubbles to the sea? y/N"
 
 func TestRAsksToReleaseTheFishByName(t *testing.T) {
+	t.Parallel()
 	for _, opts := range [][]option{{named("Bubbles")}, {named("Bubbles"), monochrome()}} {
 		h := newHarness(t, opts...)
 		h.resize(80, 24)
@@ -33,6 +34,7 @@ func TestRAsksToReleaseTheFishByName(t *testing.T) {
 }
 
 func TestEveryKeyButYOnlyCancelsTheConfirmation(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"q", "esc", "f", " ", "1", "2", "3", "r", "n", "enter"} {
 		t.Run(key, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles"))
@@ -55,6 +57,7 @@ func TestEveryKeyButYOnlyCancelsTheConfirmation(t *testing.T) {
 }
 
 func TestAClickOnlyCancelsTheConfirmation(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 	h.press("r")
@@ -69,6 +72,7 @@ func TestAClickOnlyCancelsTheConfirmation(t *testing.T) {
 }
 
 func TestCtrlCQuitsFromTheConfirmationKeepingTheFish(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 	h.press("r")
@@ -83,6 +87,7 @@ func TestCtrlCQuitsFromTheConfirmationKeepingTheFish(t *testing.T) {
 }
 
 func TestTheTankStaysLiveDuringTheConfirmation(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 	h.press("f")
@@ -125,6 +130,7 @@ func bubbles(rows []string) int {
 }
 
 func TestYOpensThePickerOnTheFirstSpeciesThenAnEmptyNamingPrompt(t *testing.T) {
+	t.Parallel()
 	for _, opts := range [][]option{{}, {monochrome()}} {
 		h := newHarness(t, append(opts, named("Bubbles"), as(fish.Goldfish))...)
 		h.resize(100, 24)
@@ -165,6 +171,7 @@ func lineWith(screen, s string) string {
 }
 
 func TestTheNewFishIsHatchedFreshAndSaved(t *testing.T) {
+	t.Parallel()
 	h := inMood(t, "Starving")
 	h.resize(100, 24)
 	h.release()
@@ -199,6 +206,7 @@ func TestTheNewFishIsHatchedFreshAndSaved(t *testing.T) {
 }
 
 func TestThePickerForANewFishDoesNotShowTheOldFishsMood(t *testing.T) {
+	t.Parallel()
 	h := inMood(t, "Starving")
 	h.resize(100, 24)
 	h.release()
@@ -210,6 +218,7 @@ func TestThePickerForANewFishDoesNotShowTheOldFishsMood(t *testing.T) {
 }
 
 func TestTheNewFishGetsNoGreeting(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(100, 24)
 	if !strings.Contains(words(h.screen()), "missed you") {
@@ -227,6 +236,7 @@ func TestTheNewFishGetsNoGreeting(t *testing.T) {
 }
 
 func TestTheNewFishStartsInAClearedTankWithTheSameScenery(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // Full, so it leaves the Food alone
 	h.resize(100, 24)
 	for range 3 {
@@ -263,6 +273,7 @@ func TestTheNewFishStartsInAClearedTankWithTheSameScenery(t *testing.T) {
 }
 
 func TestQuittingBeforeTheNewFishIsNamedKeepsTheOldFish(t *testing.T) {
+	t.Parallel()
 	steps := map[string][]string{
 		"picker esc":    {},
 		"picker ctrl+c": {},
@@ -301,6 +312,7 @@ func TestQuittingBeforeTheNewFishIsNamedKeepsTheOldFish(t *testing.T) {
 }
 
 func TestRDoesNothingWhenTheSaveFileCantBeRead(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fish.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {
@@ -320,6 +332,7 @@ func TestRDoesNothingWhenTheSaveFileCantBeRead(t *testing.T) {
 }
 
 func TestRInAWindowTooSmallForTheTankArmsNothing(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(20, 5)
 	h.press("r")

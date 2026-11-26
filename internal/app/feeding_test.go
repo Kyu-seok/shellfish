@@ -19,6 +19,7 @@ const (
 )
 
 func TestClickDropsFoodAtThatExactCell(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -29,6 +30,7 @@ func TestClickDropsFoodAtThatExactCell(t *testing.T) {
 }
 
 func TestFOrSpaceDropsFoodAtTheTopOfTheTank(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"f", " "} {
 		h := newHarness(t, named("Bubbles"))
 		h.resize(80, 24)
@@ -44,6 +46,7 @@ func TestFOrSpaceDropsFoodAtTheTopOfTheTank(t *testing.T) {
 }
 
 func TestFDropsFoodInDifferentPlaces(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -59,6 +62,7 @@ func TestFDropsFoodInDifferentPlaces(t *testing.T) {
 }
 
 func TestNumberKeysSelectTheFoodKind(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		key, glyph, name string
 	}{
@@ -85,6 +89,7 @@ func TestNumberKeysSelectTheFoodKind(t *testing.T) {
 // A terminal hands over keys typed in quick succession as one message, so
 // tapping or holding a key must still act once per key.
 func TestKeysTypedQuicklyEachTakeEffect(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 
@@ -103,6 +108,7 @@ func TestKeysTypedQuicklyEachTakeEffect(t *testing.T) {
 }
 
 func TestPelletIsSelectedAtFirst(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(100, 24)
 
@@ -114,6 +120,7 @@ func TestPelletIsSelectedAtFirst(t *testing.T) {
 // In an 80-column window there is room for the Food Kind's name or the short
 // key hint, not both: the Food Kind is shown by its glyph and the hint stays.
 func TestSelectedFoodKindLeavesRoomForTheKeyHint(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	h.press("3")
@@ -139,6 +146,7 @@ func hungerAfter(t *testing.T, d time.Duration, opts ...option) *harness {
 }
 
 func TestEachFoodKindLowersHungerByItsOwnAmount(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		key  string
 		name string
@@ -162,6 +170,7 @@ func TestEachFoodKindLowersHungerByItsOwnAmount(t *testing.T) {
 }
 
 func TestEatingNeverTakesHungerBelowFull(t *testing.T) {
+	t.Parallel()
 	h := hungerAfter(t, 2*time.Hour+24*time.Minute) // Hunger 10
 	h.press("3")
 	h.press("f")
@@ -175,6 +184,7 @@ func TestEatingNeverTakesHungerBelowFull(t *testing.T) {
 }
 
 func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
+	t.Parallel()
 	h := hungerAfter(t, 12*time.Hour) // Hungry
 	fish, ok := findFish(h.rawView())
 	if !ok {
@@ -216,6 +226,7 @@ func TestTheFishOpensItsMouthJustBeforeItEats(t *testing.T) {
 }
 
 func TestMoodAndEyeUpdateTheMomentTheFishEats(t *testing.T) {
+	t.Parallel()
 	h := hungerAfter(t, 12*time.Hour) // Hungry
 	h.press("3")
 	h.press("f")
@@ -230,6 +241,7 @@ func TestMoodAndEyeUpdateTheMomentTheFishEats(t *testing.T) {
 }
 
 func TestTheFishIsSavedAfterEachMeal(t *testing.T) {
+	t.Parallel()
 	h := hungerAfter(t, 12*time.Hour)
 	for _, want := range []float64{40, 30} {
 		h.press("f")
@@ -243,6 +255,7 @@ func TestTheFishIsSavedAfterEachMeal(t *testing.T) {
 
 // bottom is the lowest row of water, where Food comes to rest on the sand.
 func TestAFullFishIgnoresFood(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // born Full
 	h.resize(80, 24)
 	h.click(5, 2)
@@ -258,6 +271,7 @@ func TestAFullFishIgnoresFood(t *testing.T) {
 }
 
 func TestAFishEatsAgainOnceItIsNoLongerFull(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // born Full
 	h.resize(80, 24)
 	h.click(5, 2)
@@ -271,6 +285,7 @@ func TestAFishEatsAgainOnceItIsNoLongerFull(t *testing.T) {
 }
 
 func TestTheTankHoldsAtMostEightPiecesOfFood(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // Full, so it eats none of them
 	h.resize(80, 24)
 
@@ -290,6 +305,7 @@ func TestTheTankHoldsAtMostEightPiecesOfFood(t *testing.T) {
 }
 
 func TestFoodOnTheFloorFadesAfterThirtySeconds(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // Full, so it leaves the Food alone
 	h.resize(80, 24)
 	h.click(5, h.bottom()) // dropped on the sand, so it rests at once
@@ -324,6 +340,7 @@ func TestFoodOnTheFloorFadesAfterThirtySeconds(t *testing.T) {
 }
 
 func TestTheGreetingDoesNotBlockFeeding(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(60, 14)
 	if !strings.Contains(h.screen(), "missed you") {
@@ -345,6 +362,7 @@ func TestTheGreetingDoesNotBlockFeeding(t *testing.T) {
 }
 
 func TestAHungryFishEatsFoodDroppedAnywhereSoon(t *testing.T) {
+	t.Parallel()
 	const limit = 20 * time.Second
 	sizes := []struct{ w, h int }{{80, 24}, {40, 12}, {120, 40}, {30, 10}, {57, 17}}
 	for seed := range uint64(40) {
@@ -367,6 +385,7 @@ func TestAHungryFishEatsFoodDroppedAnywhereSoon(t *testing.T) {
 }
 
 func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")) // Full, so the Food sinks past it
 	h.resize(80, 24)
 	fish, ok := findFish(h.rawView())
@@ -391,6 +410,7 @@ func TestAClickOnTheFishDropsFoodToo(t *testing.T) {
 // Each Food Kind is drawn in its own colour, so they can be told apart:
 // pellets brown, flakes orange, worms pink.
 func TestEachFoodKindIsDrawnInItsOwnColour(t *testing.T) {
+	t.Parallel()
 	seen := map[string]string{}
 	for _, tc := range []struct {
 		key, glyph, name string

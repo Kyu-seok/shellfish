@@ -13,6 +13,7 @@ import (
 )
 
 func TestFirstLaunchShowsTheSpeciesPickerBeforeNaming(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(60, 16)
 
@@ -46,6 +47,7 @@ func (h *harness) fishColours() map[string]bool {
 }
 
 func TestThePickerBrowsesTheSpeciesWithTheArrowKeys(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(60, 16)
 
@@ -83,6 +85,7 @@ func TestThePickerBrowsesTheSpeciesWithTheArrowKeys(t *testing.T) {
 }
 
 func TestTheChosenSpeciesIsNamedSavedAndKept(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(60, 16)
 	h.press("right")
@@ -111,6 +114,7 @@ func TestTheChosenSpeciesIsNamedSavedAndKept(t *testing.T) {
 }
 
 func TestEscAndCtrlCQuitThePickerWithoutSaving(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"esc", "ctrl+c"} {
 		t.Run(key, func(t *testing.T) {
 			h := newHarness(t)
@@ -129,6 +133,7 @@ func TestEscAndCtrlCQuitThePickerWithoutSaving(t *testing.T) {
 }
 
 func TestQIsNotSpecialOnThePicker(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(60, 16)
 	h.press("q")
@@ -161,6 +166,7 @@ func writeVersion1Save(t *testing.T, dir string, born, lastSeen time.Time, hunge
 }
 
 func TestAVersion1FishPicksItsSpeciesOnceAndKeepsEverythingElse(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	born := start.Add(-3 * 24 * time.Hour)
 	lastSeen := start.Add(-6 * time.Hour)
@@ -211,6 +217,7 @@ func TestAVersion1FishPicksItsSpeciesOnceAndKeepsEverythingElse(t *testing.T) {
 }
 
 func TestAnUnknownSaveVersionIsRefused(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	raw := `{"version": 3, "name": "Bubbles", "species": "clownfish"}`
 	if err := os.WriteFile(filepath.Join(dir, "fish.json"), []byte(raw), 0o644); err != nil {

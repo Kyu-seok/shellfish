@@ -8,6 +8,7 @@ import (
 )
 
 func TestStatusLineShowsNameAndAgeInDays(t *testing.T) {
+	t.Parallel()
 	first := newHarness(t, named("Bubbles"))
 	first.press("q")
 
@@ -31,6 +32,7 @@ func TestStatusLineShowsNameAndAgeInDays(t *testing.T) {
 }
 
 func TestAgeTicksOverWhileTheTankIsOpen(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"), at(start.Add(-24*time.Hour+time.Second)))
 	h.resize(60, 10)
 	h.clock.now = start // as if the Tank had stayed open almost a day

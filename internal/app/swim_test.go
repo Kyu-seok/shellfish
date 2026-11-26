@@ -10,6 +10,7 @@ import (
 )
 
 func TestFishWandersAroundTheTankWithoutLeavingIt(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(80, 24)
@@ -30,6 +31,7 @@ func TestFishWandersAroundTheTankWithoutLeavingIt(t *testing.T) {
 }
 
 func TestFishHoldsStillBeforeTurningAround(t *testing.T) {
+	t.Parallel()
 	const hold = 3 // frames the Fish must stay in one column before it mirrors
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
@@ -71,6 +73,7 @@ func stillStretches(seen []sighting) [][2]int {
 }
 
 func TestFishPausesAndBobsBetweenTrips(t *testing.T) {
+	t.Parallel()
 	second := int(time.Second / app.FrameInterval)
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
@@ -100,6 +103,7 @@ func TestFishPausesAndBobsBetweenTrips(t *testing.T) {
 }
 
 func TestFishGlidesSmoothlyAndSometimesDarts(t *testing.T) {
+	t.Parallel()
 	half := int(time.Second / app.FrameInterval / 2)
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
@@ -129,6 +133,7 @@ func TestFishGlidesSmoothlyAndSometimesDarts(t *testing.T) {
 func abs(n int) int { return max(n, -n) }
 
 func TestTailSwishesFasterWhenSwimmingFaster(t *testing.T) {
+	t.Parallel()
 	const window = 10 // frames, half a second
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
@@ -197,6 +202,7 @@ func mean(ns []int) float64 {
 }
 
 func TestResizingKeepsTheFishInsideTheTank(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(5) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(160, 50)
@@ -216,6 +222,7 @@ func TestResizingKeepsTheFishInsideTheTank(t *testing.T) {
 }
 
 func TestTheSameSeedSwimsTheSameWay(t *testing.T) {
+	t.Parallel()
 	run := func(seed uint64) []string {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(80, 24)

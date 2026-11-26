@@ -7,6 +7,7 @@ import (
 )
 
 func TestHungerCatchesUpOnTimeAway(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		away  time.Duration
@@ -35,6 +36,7 @@ func TestHungerCatchesUpOnTimeAway(t *testing.T) {
 // The eye is wide open and white when Content, half-shut by its lid when
 // Hungry, and shut further with a tear below it when Starving.
 func TestTheEyeShowsTheMoodBand(t *testing.T) {
+	t.Parallel()
 	// Hunger rises 100 per 24 hours, so 9h36m is Hunger 40 and 19h12m is 80.
 	for _, tc := range []struct {
 		away time.Duration
@@ -58,6 +60,7 @@ func TestTheEyeShowsTheMoodBand(t *testing.T) {
 }
 
 func TestHungerRisesWhileTheTankIsOpen(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(50, 12)
 	h.clock.now = h.clock.now.Add(12 * time.Hour) // as if the Tank had stayed open half a day

@@ -9,6 +9,7 @@ import (
 )
 
 func TestSecondTankInTheSameDataFolderIsRefused(t *testing.T) {
+	t.Parallel()
 	first := newHarness(t, named("Bubbles"))
 	before, err := os.ReadFile(filepath.Join(first.dataDir, "fish.json"))
 	if err != nil {
@@ -39,6 +40,7 @@ func TestSecondTankInTheSameDataFolderIsRefused(t *testing.T) {
 }
 
 func TestSecondLaunchDuringNamingIsRefused(t *testing.T) {
+	t.Parallel()
 	first := newHarness(t)
 	first.resize(60, 10)
 
@@ -55,6 +57,7 @@ func TestSecondLaunchDuringNamingIsRefused(t *testing.T) {
 }
 
 func TestLaunchSucceedsAfterTheFirstTankQuits(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"q", "esc", "ctrl+c"} {
 		t.Run(key, func(t *testing.T) {
 			first := newHarness(t, named("Bubbles"))
@@ -77,6 +80,7 @@ func TestLaunchSucceedsAfterTheFirstTankQuits(t *testing.T) {
 }
 
 func TestLaunchSucceedsAfterQuittingTheNamingPrompt(t *testing.T) {
+	t.Parallel()
 	first := newHarness(t)
 	first.press("enter") // choose a Species
 	first.press("esc")

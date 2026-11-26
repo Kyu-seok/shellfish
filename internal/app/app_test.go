@@ -8,6 +8,7 @@ import (
 )
 
 func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(44, 10)
 
@@ -57,6 +58,7 @@ func TestTankShowsFishAndSeaweedAboveSandyFloorAndStatusLine(t *testing.T) {
 }
 
 func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	for _, size := range []struct{ w, h int }{{30, 10}, {80, 24}, {120, 40}} {
 		h.resize(size.w, size.h)
@@ -76,6 +78,7 @@ func TestTankFillsTheWindowAndFollowsResizes(t *testing.T) {
 }
 
 func TestQuitKeysEndTheProgram(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"q", "esc", "ctrl+c"} {
 		t.Run(key, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles"))
@@ -89,6 +92,7 @@ func TestQuitKeysEndTheProgram(t *testing.T) {
 }
 
 func TestOtherKeysDoNotQuit(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 	h.press("x")

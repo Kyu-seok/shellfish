@@ -8,6 +8,7 @@ import (
 )
 
 func TestTheFishIsAPixelClownfish(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -39,6 +40,7 @@ func TestTheFishIsAPixelClownfish(t *testing.T) {
 }
 
 func TestTheFishsOutlineLeavesTheTerminalsBackgroundShowing(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -75,6 +77,7 @@ func TestTheFishsOutlineLeavesTheTerminalsBackgroundShowing(t *testing.T) {
 }
 
 func TestTheFishFacesTheWayItSwims(t *testing.T) {
+	t.Parallel()
 	for seed := range uint64(3) {
 		h := newHarness(t, withSeed(seed), named("Bubbles"))
 		h.resize(80, 24)

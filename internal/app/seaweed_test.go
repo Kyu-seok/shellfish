@@ -52,6 +52,7 @@ func brightness(hex string) int {
 }
 
 func TestTheTankGrowsGreenKelpWithALighterTipAndGrassTufts(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -108,6 +109,7 @@ func TestTheTankGrowsGreenKelpWithALighterTipAndGrassTufts(t *testing.T) {
 }
 
 func TestSeaweedHasNoColourInMonochrome(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"), monochrome())
 	h.resize(80, 24)
 	h.advance(time.Second)
@@ -125,6 +127,7 @@ func TestSeaweedHasNoColourInMonochrome(t *testing.T) {
 }
 
 func TestKelpSwaysFromItsTipWhileItsBaseStaysPut(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(80, 24)
 
@@ -177,6 +180,7 @@ func TestKelpSwaysFromItsTipWhileItsBaseStaysPut(t *testing.T) {
 }
 
 func TestFoodRestsOnTopOfKelpAndGrass(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"kelp", "grass"} {
 		t.Run(kind, func(t *testing.T) {
 			h := newHarness(t, named("Bubbles")) // Full, so it leaves the Food be

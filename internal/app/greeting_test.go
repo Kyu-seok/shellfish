@@ -7,6 +7,7 @@ import (
 )
 
 func TestComingBackAfterTimeAwayGreetsTheUser(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		away time.Duration
 		want string
@@ -28,6 +29,7 @@ func TestComingBackAfterTimeAwayGreetsTheUser(t *testing.T) {
 }
 
 func TestShortAbsencesGetNoGreeting(t *testing.T) {
+	t.Parallel()
 	for _, away := range []time.Duration{30 * time.Minute, time.Hour} {
 		t.Run(away.String(), func(t *testing.T) {
 			h := newHarness(t, named("Bubbles")).reopen(away)
@@ -41,6 +43,7 @@ func TestShortAbsencesGetNoGreeting(t *testing.T) {
 }
 
 func TestTheFirstLaunchGetsNoGreeting(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles"))
 	h.resize(60, 14)
 
@@ -50,6 +53,7 @@ func TestTheFirstLaunchGetsNoGreeting(t *testing.T) {
 }
 
 func TestTheGreetingGoesAwayByItself(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(60, 14)
 
@@ -64,6 +68,7 @@ func TestTheGreetingGoesAwayByItself(t *testing.T) {
 }
 
 func TestTheGreetingIsDrawnNearTheTopOfTheTank(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(60, 14)
 
@@ -77,6 +82,7 @@ func TestTheGreetingIsDrawnNearTheTopOfTheTank(t *testing.T) {
 }
 
 func TestTheGreetingWrapsInANarrowTank(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t, named("Bubbles")).reopen(3 * time.Hour)
 	h.resize(30, 12)
 

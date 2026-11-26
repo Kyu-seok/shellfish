@@ -6,6 +6,7 @@ import (
 )
 
 func TestChoosingASpeciesAsksForTheFishsName(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(40, 10)
 	h.press("enter")
@@ -20,6 +21,7 @@ func TestChoosingASpeciesAsksForTheFishsName(t *testing.T) {
 }
 
 func TestNamingTheFishOpensTheTank(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(40, 10)
 	h.press("enter")
@@ -35,6 +37,7 @@ func TestNamingTheFishOpensTheTank(t *testing.T) {
 }
 
 func TestNamingPromptShowsWhatIsTyped(t *testing.T) {
+	t.Parallel()
 	h := newHarness(t)
 	h.resize(40, 10)
 	h.press("enter")
@@ -49,6 +52,7 @@ func TestNamingPromptShowsWhatIsTyped(t *testing.T) {
 }
 
 func TestEmptyOrBlankNameIsRejected(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"", "   "} {
 		t.Run(strings.ReplaceAll(name, " ", "␠"), func(t *testing.T) {
 			h := newHarness(t)

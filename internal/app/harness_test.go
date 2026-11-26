@@ -22,6 +22,14 @@ import (
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
+// TestMain renders every Tank as a true-colour terminal would. The colour
+// profile is global, so it is set once here rather than per harness, which
+// lets the tests run in parallel.
+func TestMain(m *testing.M) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	os.Exit(m.Run())
+}
+
 // start is the fake clock's time when a harness is built, unless overridden.
 var start = time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
 
@@ -81,7 +89,6 @@ func withSeed(seed uint64) option { return func(h *harness) { h.seed = seed } }
 
 func newHarness(t *testing.T, opts ...option) *harness {
 	t.Helper()
-	lipgloss.SetColorProfile(termenv.TrueColor)
 	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1, species: fish.Clownfish}
 	for _, o := range opts {
 		o(h)

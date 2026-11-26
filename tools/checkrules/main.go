@@ -8,6 +8,9 @@
 //     rand.NewPCG) is fine.
 //   - There is one test seam. Every test file is in internal/app and declares
 //     package app_test.
+//   - Tests run in parallel. Every top-level Test function (TestMain aside)
+//     starts with t.Parallel(), so the suite stays quick as it grows. State
+//     shared by all tests, like the colour profile, is set once in TestMain.
 //
 // Run it from the repo root: go run ./tools/checkrules
 package main
@@ -62,6 +65,7 @@ func main() {
 		}
 		if strings.HasSuffix(path, "_test.go") {
 			problems = append(problems, checkTestFile(path, f)...)
+			problems = append(problems, checkParallel(fset, f)...)
 		} else if path != "main.go" {
 			problems = append(problems, checkInjection(fset, f)...)
 		}
@@ -85,6 +89,39 @@ func checkTestFile(path string, f *ast.File) []string {
 		return []string{fmt.Sprintf("%s: tests go only in %s as package %s, driven through app.New and the harness", path, testDir, testPackage)}
 	}
 	return nil
+}
+
+// checkParallel flags a top-level Test function whose first statement isn't
+// t.Parallel().
+func checkParallel(fset *token.FileSet, f *ast.File) []string {
+	var problems []string
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv != nil || fn.Body == nil || !strings.HasPrefix(fn.Name.Name, "Test") || fn.Name.Name == "TestMain" {
+			continue
+		}
+		if !startsWithParallel(fn.Body) {
+			problems = append(problems, fmt.Sprintf("%s: %s must start with t.Parallel()", fset.Position(fn.Pos()), fn.Name.Name))
+		}
+	}
+	return problems
+}
+
+// startsWithParallel reports whether body's first statement calls Parallel.
+func startsWithParallel(body *ast.BlockStmt) bool {
+	if len(body.List) == 0 {
+		return false
+	}
+	expr, ok := body.List[0].(*ast.ExprStmt)
+	if !ok {
+		return false
+	}
+	call, ok := expr.X.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == "Parallel"
 }
 
 // checkInjection flags reads of the real clock or the global random source.
