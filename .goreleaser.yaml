@@ -1,0 +1,61 @@
+# Publishes a version when a v* tag is pushed (.github/workflows/publish.yml):
+# binaries for five platforms, a GitHub Release with notes from the commit
+# subjects, and the cask in Kyu-seok/homebrew-tap. npm is published after
+# this, from the same binaries (npm/build.mjs).
+version: 2
+
+project_name: shellfish
+
+builds:
+  - main: .
+    binary: shellfish
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
+homebrew_casks:
+  - name: shellfish
+    binaries: [shellfish]
+    homepage: https://github.com/Kyu-seok/shellfish
+    description: Virtual pet Fish that lives in your terminal
+    license: MIT
+    repository:
+      owner: Kyu-seok
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    # The binaries are not notarized, so macOS would refuse to open one it
+    # has quarantined. If this stops working, notarize instead (issue #25).
+    hooks:
+      post:
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-d", "com.apple.quarantine", "shellfish"],
+                                  chdir: ".", writable_paths: ["shellfish"], must_succeed: false
+          end

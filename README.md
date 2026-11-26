@@ -12,6 +12,8 @@ A virtual pet Fish that lives in your terminal. You name it, feed it and keep it
 brew install kyu-seok/tap/shellfish
 ```
 
+If Homebrew asks you to trust the tap first, run `brew trust kyu-seok/tap` and install again.
+
 **npm:**
 
 ```sh
@@ -57,6 +59,7 @@ One Fish is saved per user, in `shellfish/fish.json` under:
 - Windows: `%LOCALAPPDATA%`
 
 If `$XDG_DATA_HOME` is set, it is used on any system.
+
 Only one Tank can be open at a time.
 
 ## License

@@ -1,0 +1,22 @@
+{
+  "name": "@kyu-seok/shellfish",
+  "version": "0.0.0",
+  "description": "A virtual pet Fish that lives in your terminal",
+  "keywords": ["terminal", "tui", "virtual-pet", "fish"],
+  "homepage": "https://github.com/Kyu-seok/shellfish",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kyu-seok/shellfish.git"
+  },
+  "license": "MIT",
+  "bin": {
+    "shellfish": "bin/shellfish.js"
+  },
+  "files": ["bin"],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

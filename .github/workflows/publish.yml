@@ -1,0 +1,73 @@
+# Publishes a version: push a tag like v0.1.0 on a commit of main.
+# Needs the setup in issue #25 done first (tools/setup-publishing.sh).
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make check
+
+  # Binaries, the GitHub Release and the Homebrew cask.
+  goreleaser:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the changelog reads the commits since the last tag
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The built-in token can't push to another repo: this one can push
+          # only to Kyu-seok/homebrew-tap.
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: |
+            dist/artifacts.json
+            dist/*/shellfish
+            dist/*/shellfish.exe
+
+  # The npm packages, from the same binaries, by trusted publishing: no npm
+  # token is stored, and npm records provenance.
+  npm:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@^11.5.1 # trusted publishing needs 11.5.1 or later
+      - run: node npm/build.mjs "${GITHUB_REF_NAME#v}" dist dist/npm
+      - run: npm/publish.sh dist/npm
