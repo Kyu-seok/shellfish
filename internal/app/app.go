@@ -306,7 +306,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tank.DropNearTop(m.foodKind)
 			}
 		case "1", "2", "3":
-			m.foodKind = fish.FoodKinds[key[0]-'1']
+			if m.tankShown() {
+				m.foodKind = fish.FoodKinds[key[0]-'1']
+			}
 		case "r":
 			if m.tankShown() {
 				m.phase = confirming
