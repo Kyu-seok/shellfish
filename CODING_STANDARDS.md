@@ -53,3 +53,9 @@ Why: the spec promises a pet that never punishes neglect. In spec #1, one failed
 A helper more than one test uses (reading a cell, the status line, counting a glyph, waiting for a meal) goes in `internal/app/harness_test.go`, and one helper does each job. Strings the tests share, like the Fish's faces, are defined there once.
 
 Why: in spec #1 helpers were scattered across four test files and the face strings were copied. It happened again in spec #11, which needed cleanup commits for a second colour parser and a second wait-for-a-meal.
+
+## A test that X changes nothing shows X could change something
+
+A twin test (a Tank given X runs the same as one without it) only proves X is ignored if, in that same setup, X would act. Show it in the test or the commit message: the twins differ when the rule is broken.
+
+Why: in #24's review fixes, the Release twin test passed with the bug back in, because the Fish sat under the pointer and never started a trip.

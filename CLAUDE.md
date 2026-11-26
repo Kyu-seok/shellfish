@@ -4,7 +4,7 @@
 
 ## Merging
 
-Merge command: `git merge --ff-only <branch>`. If it refuses, run `git merge --no-ff <branch> && make check`.
+Merge a branch once `/code-review` against its fork point has reported and its findings are fixed or waived by the user. Merge command: `git merge --ff-only <branch>`. If it refuses, run `git merge --no-ff <branch> && make check`.
 
 ## Agent skills
 
