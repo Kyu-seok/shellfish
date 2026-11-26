@@ -32,6 +32,18 @@ _Avoid_: Treat, snack
 One type of Food, such as a pellet, flake or worm. Each kind lowers Hunger by a different amount when eaten.
 _Avoid_: Food type, flavor, item
 
+**Hand**:
+The user's pointer while it is over the Tank, like a hand held to the glass.
+_Avoid_: Cursor, pointer, mouse
+
+**Curiosity**:
+The Fish wandering near the Hand while the Hand keeps moving. Food always comes first, and a Starving Fish has no Curiosity.
+_Avoid_: Following, tracking
+
+**Pat**:
+The user touching the Fish itself, which makes it wiggle and, unless it is Starving, send up a heart.
+_Avoid_: Pet, stroke, touch, click
+
 **Hunger**:
 How hungry the Fish is. It rises over real time, even while the app is closed, and eating Food lowers it.
 _Avoid_: Fullness, satiety, food level
