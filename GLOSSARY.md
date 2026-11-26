@@ -12,6 +12,10 @@ _Avoid_: Pet, tamagotchi, creature
 Letting the Fish go for good, so that the user can start a new Fish. The released Fish is not kept anywhere, and the new Fish is a new Fish, not the old one with another Species.
 _Avoid_: Delete, reset, abandon, rehome
 
+**Farewell**:
+The Fish swimming out of the Tank after the user confirms a Release, saying bye, before the new Fish is chosen. The Fish is released when the Farewell ends.
+_Avoid_: Goodbye, exit, outro, departure animation
+
 **Species**:
 What kind of fish the Fish is, such as a clownfish or a goldfish. A Fish has one Species for life, and its Species decides its colours.
 _Avoid_: Breed, type, skin, colour
