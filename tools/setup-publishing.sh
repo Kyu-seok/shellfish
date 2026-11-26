@@ -216,7 +216,10 @@ run_wizard() {
 TOTAL_STAGES=6
 
 cd "$(git rev-parse --show-toplevel)"
-PACKAGES=(shellfish shellfish-darwin-arm64 shellfish-darwin-x64 shellfish-linux-arm64 shellfish-linux-x64 shellfish-win32-x64)
+# The platforms, as npm/build.mjs names them, and the packages for them.
+TARGETS=(darwin-arm64 darwin-x64 linux-arm64 linux-x64 win32-x64)
+PACKAGES=(shellfish)
+for t in "${TARGETS[@]}"; do PACKAGES+=("shellfish-$t"); done
 
 banner "Publishing setup for shellfish"
 

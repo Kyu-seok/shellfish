@@ -26,14 +26,16 @@ func TestVersionPrintsTheVersion(t *testing.T) {
 
 func TestHelpPrintsUsage(t *testing.T) {
 	t.Parallel()
+	const want = `shellfish: a virtual pet Fish that lives in your terminal.
+
+Usage:
+  shellfish            open the Tank
+  shellfish --version  print the version
+  shellfish --help     print this help
+`
 	inv := app.Invoke([]string{"--help"}, "v1.2.3")
-	if inv.Open || inv.Status != 0 || inv.Err != "" {
-		t.Errorf("Invoke(--help) = %+v, want usage on stdout and the Tank left shut", inv)
-	}
-	for _, want := range []string{"Usage:", "shellfish --version", "shellfish --help"} {
-		if !strings.Contains(inv.Out, want) {
-			t.Errorf("--help printed %q, want it to mention %q", inv.Out, want)
-		}
+	if inv.Open || inv.Status != 0 || inv.Out != want || inv.Err != "" {
+		t.Errorf("Invoke(--help) = %+v, want exactly this on stdout and the Tank left shut:\n%s", inv, want)
 	}
 }
 

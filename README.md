@@ -40,13 +40,13 @@ Run `shellfish`. The first time, pick a Species and give your Fish a name.
 | `f` or space | Drop Food at the top of the Tank |
 | `1`, `2`, `3` | Choose the Food: pellet, flake or worm |
 | Click the Fish | Pat it: it wiggles and sends up a heart |
-| Move the pointer over the Tank | A curious Fish swims over to see |
+| Move the mouse over the Tank | A curious Fish swims over to see |
 | `r` | Release the Fish, to start again with a new one |
 | `q` or Esc | Close the Tank (the Fish carries on living) |
 
 The Fish shows how it feels: Content, Hungry or Starving. A hungry Fish dashes for Food, and a Starving one droops to the bottom of the Tank until it's fed.
 
-The Tank needs a window of at least 30×10 and a terminal with 256 colours; with fewer, or with `NO_COLOR` set, the Fish is drawn as a silhouette. In tmux, turn on `set -g mouse on` for clicking and the pointer.
+The Tank needs a window of at least 30×10 and a terminal with 256 colours; with fewer, or with `NO_COLOR` set, the Fish is drawn as a silhouette. In tmux, turn on `set -g mouse on` for the mouse.
 
 `shellfish --version` and `shellfish --help` work any time, even while a Tank is open.
 
