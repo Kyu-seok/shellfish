@@ -349,11 +349,11 @@ func (m Model) View() string {
 	}
 	switch m.phase {
 	case picking:
-		sc.Picking = m.species()
+		sc.Bottom = render.Picker{Species: m.species()}
 	case confirming:
-		sc.Releasing = true
+		sc.Bottom = render.Confirmation{}
 	case farewell:
-		sc.Farewell = true
+		sc.Bottom = render.Farewell{}
 	}
 	if m.now.Before(m.greetUntil) {
 		sc.Away = m.away

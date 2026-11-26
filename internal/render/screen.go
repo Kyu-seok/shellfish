@@ -22,16 +22,34 @@ type Scene struct {
 	// Away is how long the user was away, while the Tank greets them for
 	// it. Zero shows no greeting.
 	Away time.Duration
-	// Picking is the Species shown on the Species picker, which takes the
-	// status line's place. NoSpecies shows the status line.
-	Picking fish.Species
-	// Releasing is set while the user is asked to confirm releasing the Fish,
-	// which takes the status line's place.
-	Releasing bool
-	// Farewell is set while the released Fish swims away, saying bye in the
-	// status line's place.
-	Farewell bool
+	// Bottom is what takes the status line's place, if anything: nil shows
+	// the status line.
+	Bottom Bottom
 }
+
+// Bottom is a line shown below the Tank in the status line's place: one of
+// Picker, Confirmation and Farewell.
+type Bottom interface {
+	// line is the line, exactly width cells, for the Fish with status s.
+	line(s Status, width int) string
+}
+
+// Picker is the Species picker, showing Species.
+type Picker struct{ Species fish.Species }
+
+// Confirmation asks the user to confirm releasing the Fish.
+type Confirmation struct{}
+
+// Farewell says bye while the released Fish swims away.
+type Farewell struct{}
+
+func (p Picker) line(_ Status, width int) string { return pickerLine(p.Species, width) }
+
+func (Confirmation) line(s Status, width int) string {
+	return fit(" Release "+s.Name+" to the sea? y/N", width)
+}
+
+func (Farewell) line(s Status, width int) string { return fit(" Bye, "+s.Name+"!", width) }
 
 // Status is what the status line shows.
 type Status struct {
@@ -53,13 +71,8 @@ func Screen(sc Scene) string {
 	}
 	water := g.rows()
 	bottom := statusLine(sc.Status, sc.Tank.Width)
-	switch {
-	case sc.Picking != fish.NoSpecies:
-		bottom = pickerLine(sc.Picking, sc.Tank.Width)
-	case sc.Releasing:
-		bottom = fit(" Release "+sc.Status.Name+" to the sea? y/N", sc.Tank.Width)
-	case sc.Farewell:
-		bottom = fit(" Bye, "+sc.Status.Name+"!", sc.Tank.Width)
+	if sc.Bottom != nil {
+		bottom = sc.Bottom.line(sc.Status, sc.Tank.Width)
 	}
 	return strings.Join(append(water, bottom), "\n")
 }
