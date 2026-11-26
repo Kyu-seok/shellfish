@@ -132,27 +132,33 @@ func drawGreeting(g grid, text string, food []tank.Food) {
 	}
 }
 
-// keyHint teaches the controls at the right end of the status line.
-const keyHint = "click/f feed · 1-3 food · r release · q quit"
+// keyHint teaches the controls at the right end of the status line, and
+// shortKeyHint takes its place when it doesn't fit.
+const (
+	keyHint      = "click/f feed · 1-3 food · r release · q quit"
+	shortKeyHint = "f feed · r release · q quit"
+)
 
 // saveFailed takes the key hint's place while the Fish can't be saved.
 const saveFailed = "⚠ couldn't save"
 
 // statusLine is exactly width cells: the Fish's facts on the left and a
-// faint key hint at the right end, which makes way when there is no room.
-// The selected Food Kind, last of the facts, shrinks from its glyph and name
-// to its glyph alone before the hint makes way for it.
+// faint key hint at the right end, which shortens, then makes way, when there
+// is no room. The selected Food Kind, last of the facts, shrinks from its
+// glyph and name to its glyph alone before the hint shortens or makes way.
 func statusLine(s Status, width int) string {
 	glyph := string(s.Food.Glyph())
 	named := glyph + " " + s.Food.String()
-	hint := faintStyle.Render(keyHint)
+	hints := []string{faintStyle.Render(keyHint), faintStyle.Render(shortKeyHint)}
 	if s.SaveFailed {
-		hint = saveFailed
+		hints = []string{saveFailed}
 	}
-	for _, food := range []string{named, glyph} {
-		facts := statusFacts(s, width, food)
-		if gap := width - ansi.StringWidth(facts) - ansi.StringWidth(hint) - 1; gap >= 2 {
-			return facts + strings.Repeat(" ", gap) + hint + " "
+	for _, hint := range hints {
+		for _, food := range []string{named, glyph} {
+			facts := statusFacts(s, width, food)
+			if gap := width - ansi.StringWidth(facts) - ansi.StringWidth(hint) - 1; gap >= 2 {
+				return facts + strings.Repeat(" ", gap) + hint + " "
+			}
 		}
 	}
 	return fit(statusFacts(s, width, named, glyph), width)

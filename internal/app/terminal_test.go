@@ -176,15 +176,20 @@ func TestColourTankDoesDrawColour(t *testing.T) {
 	}
 }
 
-const keyHint = "click/f feed · 1-3 food · r release · q quit"
+// keyHint is the full key hint, and shortKeyHint the one shown when it doesn't
+// fit.
+const (
+	keyHint      = "click/f feed · 1-3 food · r release · q quit"
+	shortKeyHint = "f feed · r release · q quit"
+)
 
 func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(100, 24)
+	h.resize(80, 24)
 
 	got := h.view()
 	status := got[len(got)-1]
-	if !strings.HasSuffix(strings.TrimRight(status, " "), keyHint) {
+	if !strings.HasSuffix(strings.TrimRight(status, " "), shortKeyHint) {
 		t.Fatalf("status line %q does not end with the key hint", status)
 	}
 	if strings.TrimRight(status, " ") == status {
@@ -194,12 +199,29 @@ func TestStatusLineEndsWithAFaintKeyHint(t *testing.T) {
 		t.Errorf("key hint is not at the right end of the status line: %q", status)
 	}
 	row := len(got) - 1
-	hint := len([]rune(strings.TrimRight(status, " "))) - len([]rune(keyHint))
+	hint := len([]rune(strings.TrimRight(status, " "))) - len([]rune(shortKeyHint))
 	if !h.styleAt(hint, row).faint {
 		t.Errorf("key hint is not faint: %q", h.rawView()[row])
 	}
 	if h.styleAt(0, row).faint {
 		t.Errorf("the Fish's name is faint too: %q", h.rawView()[row])
+	}
+}
+
+func TestKeyHintShortensBeforeItMakesWay(t *testing.T) {
+	h := newHarness(t, named("Bubbles"))
+	for _, tc := range []struct {
+		width int
+		want  string
+	}{
+		{100, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days · • pellet" + strings.Repeat(" ", 3) + keyHint},
+		{80, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days · •" + strings.Repeat(" ", 7) + shortKeyHint},
+		{50, "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days · •"},
+	} {
+		h.resize(tc.width, 10)
+		if got := strings.TrimSpace(h.statusLine()); got != tc.want {
+			t.Errorf("%d wide: status line is %q, want %q", tc.width, got, tc.want)
+		}
 	}
 }
 

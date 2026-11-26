@@ -111,19 +111,19 @@ func TestPelletIsSelectedAtFirst(t *testing.T) {
 	}
 }
 
-// In a 92-column window there is room for the Food Kind's name or the key
-// hint, not both: the Food Kind is shown by its glyph and the hint stays.
+// In an 80-column window there is room for the Food Kind's name or the short
+// key hint, not both: the Food Kind is shown by its glyph and the hint stays.
 func TestSelectedFoodKindLeavesRoomForTheKeyHint(t *testing.T) {
 	h := newHarness(t, named("Bubbles"))
-	h.resize(92, 24)
+	h.resize(80, 24)
 	h.press("3")
 
 	status := h.statusLine()
 	if want := "Bubbles · Hunger ▱▱▱▱▱▱▱▱▱▱ · Age 0 days · " + worm + " "; !strings.HasPrefix(status, want) {
 		t.Errorf("status line is %q, want it to start %q", status, want)
 	}
-	if !strings.HasSuffix(status, keyHint) {
-		t.Errorf("status line is %q, want it to end with the key hint", status)
+	if !strings.HasSuffix(status, shortKeyHint) {
+		t.Errorf("status line is %q, want it to end with the short key hint", status)
 	}
 }
 
