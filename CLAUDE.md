@@ -1,6 +1,6 @@
 ## Checks
 
-`make check` is the gate (gofmt, vet, repo rules, tests, Windows build); CI runs it on every push. Run `make hooks` once per clone to turn on the pre-commit hook. Repo rules live in `tools/checkrules`.
+`make check` is the gate (gofmt, vet, repo rules, tests, Windows build); CI runs it on every push. CI also runs `make publish-check`, which builds and checks everything a version would publish; run it when changing `.goreleaser.yaml`, `npm/` or the workflows. Run `make hooks` once per clone to turn on the pre-commit hook. Repo rules live in `tools/checkrules`.
 
 ## Merging
 

@@ -1,6 +1,6 @@
-# make check is the one gate: run it before committing and merging. CI runs
-# it on every push; the pre-commit hook runs the fast part (make hooks once
-# per clone to turn the hook on).
+# make check is the gate: run it before committing and merging. CI runs it on
+# every push, with make publish-check (below); the pre-commit hook runs the
+# fast part (make hooks once per clone to turn the hook on).
 
 .PHONY: check precommit fmt vet rules test windows hooks publish-check goreleaser-version
 
@@ -45,4 +45,4 @@ publish-check:
 	tools/check-cask.sh dist/homebrew/Casks/shellfish.rb
 	node npm/build.mjs 0.0.0-snapshot dist dist/npm
 	npm/publish.sh dist/npm --dry-run >/dev/null
-	npm/smoke.sh dist/npm
+	npm/smoke.sh dist/npm "$$(node -p 'require("./dist/metadata.json").version')"
