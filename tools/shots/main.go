@@ -43,6 +43,9 @@ const (
 	fontSize     = 19
 	pad          = 16 // pixels of background around each picture
 	gifStep      = 2  // app frames per GIF frame: 20 fps → 10 fps
+	// tileW and tileH are the window, in cells, each small Tank in the
+	// Species and Mood pictures is drawn in.
+	tileW, tileH = 36, 13
 )
 
 var (
@@ -120,9 +123,9 @@ func launch(dir string, c *clock, seed uint64) *session {
 }
 
 // newFish starts on an empty data folder, picks sp and names the Fish, then
-// closes the Tank and opens it again unfed for hungry, so the Fish starts
-// with that much Hunger.
-func newFish(sp fish.Species, hungry time.Duration, seed uint64, width, height int) (*session, error) {
+// closes the Tank and opens it again after leaving the Fish unfed for long
+// enough that its Hunger is hunger.
+func newFish(sp fish.Species, hunger float64, seed uint64, width, height int) (*session, error) {
 	dir, err := os.MkdirTemp("", "shellfish-shots-")
 	if err != nil {
 		return nil, err
@@ -139,7 +142,7 @@ func newFish(sp fish.Species, hungry time.Duration, seed uint64, width, height i
 	}
 	s.send(tea.KeyMsg{Type: tea.KeyEnter})
 	s.close()
-	c.now = c.now.Add(hungry)
+	c.now = c.now.Add(time.Duration(hunger / fish.HungerPerDay * float64(fish.Day)))
 	s = launch(dir, c, seed)
 	s.resize(width, height)
 	s.advance(app.GreetingDuration + time.Second) // past the welcome-back greeting
@@ -572,7 +575,7 @@ func fishCell(g grid) (col, row int, ok bool) {
 // dropped in front of it, the Fish noticing it and darting over to eat it,
 // then a Pat.
 func (p *painter) hero(path string) error {
-	s, err := newFish(fish.Clownfish, 12*time.Hour, 3, 72, 18)
+	s, err := newFish(fish.Clownfish, (fish.HungryAt+fish.StarvingAt)/2, 3, 72, 18)
 	if err != nil {
 		return err
 	}
@@ -589,9 +592,11 @@ func (p *painter) hero(path string) error {
 	record(1500 * time.Millisecond)
 	s.click(52, 7)
 	record(4 * time.Second)
-	if col, row, ok := fishCell(s.screen()); ok {
-		s.click(col, row)
+	col, row, ok := fishCell(s.screen())
+	if !ok {
+		return fmt.Errorf("hero: no Fish on screen to pat")
 	}
+	s.click(col, row)
 	record(3 * time.Second)
 	return writeGIF(path, frames, 100/(1000/int(app.FrameInterval.Milliseconds()*gifStep)))
 }
@@ -600,7 +605,7 @@ func (p *painter) hero(path string) error {
 func (p *painter) species(path string) error {
 	var tiles []grid
 	for _, sp := range []fish.Species{fish.Clownfish, fish.Goldfish, fish.Pufferfish, fish.BlueTang, fish.Betta, fish.Koi} {
-		s, err := newFish(sp, time.Hour, 5, 36, 11)
+		s, err := newFish(sp, 0, 5, tileW, tileH)
 		if err != nil {
 			return err
 		}
@@ -608,7 +613,7 @@ func (p *painter) species(path string) error {
 		g := s.screen()
 		s.close()
 		g = g[:len(g)-1] // without the status line
-		tiles = append(tiles, append(g, p.label(sp.Title(), 36)...))
+		tiles = append(tiles, append(g, p.label(sp.Title(), tileW)...))
 	}
 	return writePNG(path, p.draw(stack(tiles, 3)))
 }
@@ -616,19 +621,24 @@ func (p *painter) species(path string) error {
 // moods shows one Fish Content, Hungry and Starving.
 func (p *painter) moods(path string) error {
 	var tiles []grid
+	// Hunger in the middle of each Mood's band.
 	for _, m := range []struct {
 		name   string
-		hungry time.Duration
-	}{{"Content", 6 * time.Hour}, {"Hungry", 12 * time.Hour}, {"Starving", 22 * time.Hour}} {
-		s, err := newFish(fish.Clownfish, m.hungry, 7, 36, 11)
+		hunger float64
+	}{
+		{"Content", fish.HungryAt / 2},
+		{"Hungry", (fish.HungryAt + fish.StarvingAt) / 2},
+		{"Starving", (fish.StarvingAt + fish.MaxHunger) / 2},
+	} {
+		s, err := newFish(fish.Clownfish, m.hunger, 7, tileW, tileH)
 		if err != nil {
 			return err
 		}
-		s.advance(6 * time.Second) // a Starving Fish droops low first
+		s.advance(10 * time.Second) // a Starving Fish droops low first
 		g := s.screen()
 		s.close()
 		g = g[:len(g)-1]
-		tiles = append(tiles, append(g, p.label(m.name, 36)...))
+		tiles = append(tiles, append(g, p.label(m.name, tileW)...))
 	}
 	return writePNG(path, p.draw(stack(tiles, 3)))
 }
