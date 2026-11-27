@@ -2,7 +2,7 @@
 
 A virtual pet Fish that lives in your terminal. You name it, feed it and keep it company, and it carries on living while the app is closed: it gets hungry in real time, but it never dies.
 
-<!-- A screenshot goes here: docs/screenshot.png, taken in a real terminal. -->
+![A clownfish in its Tank darts over to a pellet, eats it and sends up a heart, then wiggles when patted](https://raw.githubusercontent.com/Kyu-seok/shellfish/main/docs/hero.gif)
 
 ## Install
 
@@ -34,6 +34,8 @@ Or download a binary for macOS, Linux or Windows from the [Releases page](https:
 
 Run `shellfish`. The first time, pick a Species and give your Fish a name.
 
+![The Species picker on first launch](https://raw.githubusercontent.com/Kyu-seok/shellfish/main/docs/picker.png)
+
 | Do this | And |
 | --- | --- |
 | Click the water | Drop Food where you clicked |
@@ -45,6 +47,12 @@ Run `shellfish`. The first time, pick a Species and give your Fish a name.
 | `q` or Esc | Close the Tank (the Fish carries on living) |
 
 The Fish shows how it feels: Content, Hungry or Starving. A hungry Fish dashes for Food, and a Starving one droops to the bottom of the Tank until it's fed.
+
+![One clownfish Content, Hungry and Starving: its eyelids droop as it gets hungrier, and a Starving Fish sheds a tear](https://raw.githubusercontent.com/Kyu-seok/shellfish/main/docs/moods.png)
+
+There are ten Species to choose from. Here are six:
+
+![Six Species: clownfish, goldfish, pufferfish, blue tang, betta and koi](https://raw.githubusercontent.com/Kyu-seok/shellfish/main/docs/species.png)
 
 The Tank needs a window of at least 30×10 and a terminal with 256 colours; with fewer, or with `NO_COLOR` set, the Fish is drawn as a silhouette. In tmux, turn on `set -g mouse on` for the mouse.
 

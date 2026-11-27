@@ -2,7 +2,7 @@
 # every push, with make publish-check (below); the pre-commit hook runs the
 # fast part (make hooks once per clone to turn the hook on).
 
-.PHONY: check precommit fmt vet rules test windows hooks publish-check goreleaser-version
+.PHONY: check precommit fmt vet rules test windows hooks publish-check goreleaser-version shots
 
 check: precommit test windows
 
@@ -46,3 +46,8 @@ publish-check:
 	node npm/build.mjs 0.0.0-snapshot dist dist/npm
 	npm/publish.sh dist/npm --dry-run >/dev/null
 	npm/smoke.sh dist/npm "$$(node -p 'require("./dist/metadata.json").version')"
+
+# Redraws the README's pictures in docs/ from the real app (tools/shots).
+# It reads macOS's system fonts; elsewhere pass fonts with -fonts.
+shots:
+	go run ./tools/shots
