@@ -1,0 +1,12 @@
+# Coarse Detail for fonts without sextants
+
+Terminals that draw sextants from the user's font show the Fish as a cloud of `?` boxes when the font has none, as most fonts, including the macOS defaults, do: Terminal.app, iTerm2 before 3.6.7, and anything behind tmux, ssh or a multiplexer that hides which terminal is outside. We no longer accept that (it partly supersedes ADR 0001). The Fish can be drawn in two Details: Fine, in sextants (2×3 pixels per cell) as before, and Coarse, in quadrants (2×2), which nearly every monospace font has. The Fish is drawn from shapes every frame, so Coarse is the same shapes sampled on a coarser grid, and it covers the same cells as Fine: the Tank, the Food and Pats never need to know which Detail is in use. The app cannot tell whether the font has sextants, so it guesses from the terminal: Fine only where the terminal is known to draw sextants itself whatever the font, at a version that does (Ghostty, kitty, WezTerm, foot, Alacritty, Rio, Contour, iTerm2 3.6.7+, VS Code 1.108+, VTE 0.60+, Konsole 22.04+), and Coarse everywhere else, including any terminal whose version it cannot read. Windows Terminal draws them from 1.25 but does not say its version, so it stays Coarse until 1.25 is old enough to assume. The user can change it, and the choice is remembered for that terminal, apart from the Fish, so a Release keeps it. The guess therefore never shows boxes; they appear only after a user picks Fine on a font without sextants.
+
+## Considered Options
+
+- **Half-blocks (1×2):** in every font, but quadrants are in nearly every font too and have twice the detail.
+- **Braille (2×4) and octants (2×4):** Braille looks stippled (ADR 0001); octants are in even fewer fonts than sextants, so they make the problem worse.
+- **Many Details to choose from:** every Detail is another look to check across each Species, Mood, blink and tail swish, for no gain in compatibility.
+- **Keep the Fish's pixels and let it grow in cells on a coarser grid:** keeps the detail, but the Tank's minimum size, the layout and where a Pat lands would all depend on the Detail.
+- **Ask on first launch whether the user sees a fish or boxes:** the only way to really test the font, but it adds a step to first launch, and the answer goes stale when the user changes font or terminal.
+- **Always Fine unless the user changes it:** keeps today's look, but the first thing an iTerm2 or Terminal.app user sees is boxes, which looks like a bug.

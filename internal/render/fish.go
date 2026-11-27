@@ -10,18 +10,15 @@ import (
 	"github.com/Kyu-seok/shellfish/internal/tank"
 )
 
-// The Fish is drawn in sextants: each cell is split into 2×3 pixels, and
-// each pixel is sampled from the Fish's shapes (ADR 0001).
-const (
-	pixelCols = 2
-	pixelRows = 3
-)
-
 // on stands for every colour of a monochrome Fish.
 const on = "on"
 
-// drawFish rasterises art into g as the Fish f looks right now.
-func drawFish(g grid, art fish.Art, f tank.Fish, mood fish.Mood, mono bool) {
+// drawFish rasterises the Fish f into g, looking as look says right now: each
+// cell is split into pixels as its Detail says, and each pixel is sampled
+// from the Fish's shapes (ADR 0001).
+func drawFish(g grid, look Look, f tank.Fish) {
+	art, mood, mono := look.Art, look.Mood, look.Monochrome
+	pixelCols, pixelRows := look.Detail.pixels()
 	layers := slices.Concat(art.Layers, faceLayers(art, f, mood))
 	if mono {
 		// A silhouette, with the eye a hole in it so it still reads as a
@@ -37,15 +34,15 @@ func drawFish(g grid, art fish.Art, f tank.Fish, mood fish.Mood, mono bool) {
 	cols, rows := int(math.Ceil(art.W)), int(math.Ceil(art.H/2))
 	for r := range rows {
 		for c := range cols {
-			var px [pixelCols * pixelRows]string
+			px := make([]string, pixelCols*pixelRows)
 			counts := map[string]int{}
 			for j := range pixelRows {
 				for i := range pixelCols {
-					x := float64(c) + (float64(i)+0.5)/pixelCols
+					x := float64(c) + (float64(i)+0.5)/float64(pixelCols)
 					if f.FacingLeft {
 						x = art.W - x
 					}
-					y := (float64(r) + (float64(j)+0.5)/pixelRows) * 2
+					y := (float64(r) + (float64(j)+0.5)/float64(pixelRows)) * 2
 					col := sample(layers, x, y, swish, art.TailRoot)
 					if mono && col != "" {
 						col = on
@@ -54,14 +51,14 @@ func drawFish(g grid, art fish.Art, f tank.Fish, mood fish.Mood, mono bool) {
 					counts[col]++
 				}
 			}
-			fg, bg, mask := twoColours(px[:], counts)
+			fg, bg, mask := twoColours(px, counts)
 			if mask == 0 && bg == "" {
 				continue // all clear
 			}
 			if mono {
 				fg, bg = "", ""
 			}
-			g.paint(f.Col+c, f.Row+r, sextant(mask), fg, bg)
+			g.paint(f.Col+c, f.Row+r, look.Detail.glyph(mask), fg, bg)
 		}
 	}
 }
@@ -201,7 +198,7 @@ func FishAt(s tank.Snapshot, look Look, col, row int) bool {
 		return false
 	}
 	g := newGrid(s.Width, s.Height)
-	drawFish(g, look.Art, s.Fish, look.Mood, look.Monochrome)
+	drawFish(g, look, s.Fish)
 	c := g[row][col]
 	return c.c != ' ' || c.bg != ""
 }

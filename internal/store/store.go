@@ -88,27 +88,34 @@ func Save(dir string, f fish.Fish) error {
 	if err != nil {
 		return fmt.Errorf("saving Fish: %w", err)
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := writeFile(dir, FileName, raw); err != nil {
 		return fmt.Errorf("saving Fish: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, FileName+".*.tmp")
+	return nil
+}
+
+// writeFile writes raw to the file name in dir atomically: to a temporary
+// file first, then renamed over it, so a crash never leaves it half-written.
+// It creates dir if needed.
+func writeFile(dir, name string, raw []byte) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, name+".*.tmp")
 	if err != nil {
-		return fmt.Errorf("saving Fish: %w", err)
+		return err
 	}
 	defer os.Remove(tmp.Name()) // a no-op once renamed
 	if _, err := tmp.Write(append(raw, '\n')); err != nil {
 		tmp.Close()
-		return fmt.Errorf("saving Fish: %w", err)
+		return err
 	}
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
-		return fmt.Errorf("saving Fish: %w", err)
+		return err
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("saving Fish: %w", err)
+		return err
 	}
-	if err := os.Rename(tmp.Name(), filepath.Join(dir, FileName)); err != nil {
-		return fmt.Errorf("saving Fish: %w", err)
-	}
-	return nil
+	return os.Rename(tmp.Name(), filepath.Join(dir, name))
 }

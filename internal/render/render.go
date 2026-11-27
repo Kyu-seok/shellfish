@@ -31,6 +31,8 @@ type Look struct {
 	// Monochrome draws without colour, for NO_COLOR or a terminal with too
 	// few colours to show the Fish.
 	Monochrome bool
+	// Detail is how finely it is drawn.
+	Detail Detail
 }
 
 // drawTank draws the Tank on a grid of s.Width by s.Height cells: the
@@ -63,7 +65,7 @@ func drawTank(s tank.Snapshot, look Look) grid {
 		}
 		g.setColoured(fd.Col, fd.Row, fd.Kind.Glyph(), in, fd.Kind.Colour(), mono)
 	}
-	drawFish(g, look.Art, s.Fish, look.Mood, mono)
+	drawFish(g, look, s.Fish)
 	return g
 }
 

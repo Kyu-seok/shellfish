@@ -20,6 +20,9 @@ Usage:
   shellfish            open the Tank
   shellfish --version  print the version
   shellfish --help     print this help
+
+In the Tank, d switches the Fish between Fine and Coarse Detail. Coarse is
+for terminals whose font shows the Fine Fish as boxes.
 `
 
 // Invoke decides what the command line asks for. With no arguments the Tank

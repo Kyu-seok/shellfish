@@ -44,6 +44,7 @@ Run `shellfish`. The first time, pick a Species and give your Fish a name.
 | Click the Fish | Pat it: it wiggles and sends up a heart |
 | Move the mouse over the Tank | A curious Fish swims over to see |
 | `r` | Release the Fish, to start again with a new one |
+| `d` | Switch the Fish between Fine and Coarse Detail |
 | `q` or Esc | Close the Tank (the Fish carries on living) |
 
 The Fish shows how it feels: Content, Hungry or Starving. A hungry Fish dashes for Food, and a Starving one droops to the bottom of the Tank until it's fed.
@@ -56,11 +57,13 @@ There are ten Species to choose from. Here are six:
 
 The Tank needs a window of at least 30×10 and a terminal with 256 colours; with fewer, or with `NO_COLOR` set, the Fish is drawn as a silhouette. In tmux, turn on `set -g mouse on` for the mouse.
 
+The pictures here show the Fish in Fine Detail, drawn in sextant characters. Ghostty, kitty, WezTerm, foot, Alacritty, iTerm2 3.6.7 or later and other recent terminals draw those themselves, so the Tank opens Fine. Elsewhere, such as Terminal.app, older iTerm2, tmux or over ssh, the Fish starts in Coarse Detail, which every font can show. If your font has sextants (Iosevka, Cascadia Code, JuliaMono and others do), press `d` for Fine; your terminal remembers the choice. If the Fish turns to boxes, press `d` again.
+
 `shellfish --version` and `shellfish --help` work any time, even while a Tank is open.
 
 ## Where your Fish lives
 
-One Fish is saved per user, in `shellfish/fish.json` under:
+One Fish is saved per user, in `shellfish/fish.json`, with the Detail you picked in each terminal in `shellfish/detail.json`, under:
 
 - macOS: `~/Library/Application Support`
 - Linux: `$XDG_DATA_HOME`, or `~/.local/share`

@@ -31,3 +31,7 @@ const FarewellDuration = 2 * time.Second
 // FarewellSwim is how long the released Fish takes to swim out of its Tank,
 // leaving the rest of the farewell to say bye to an empty Tank.
 const FarewellSwim = 1500 * time.Millisecond
+
+// DetailHintDuration is how long the hint for going back to Coarse stays up
+// after the user picks Fine in a terminal that may not show it.
+const DetailHintDuration = 5 * time.Second

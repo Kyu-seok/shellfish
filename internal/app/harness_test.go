@@ -49,7 +49,8 @@ type harness struct {
 	seed    uint64
 	dataDir string
 	mono    bool
-	species fish.Species // the Species named chooses, and the harness looks for
+	env     map[string]string // the terminal's environment variables
+	species fish.Species      // the Species named chooses, and the harness looks for
 	model   tea.Model
 	last    tea.Cmd
 
@@ -81,6 +82,18 @@ func as(sp fish.Species) option { return func(h *harness) { h.species = sp } }
 // monochrome launches as on a terminal with NO_COLOR set or too few colours.
 func monochrome() option { return func(h *harness) { h.mono = true } }
 
+// inTerminal launches with the environment variables in vars, given as name,
+// value pairs, in place of the default: a Ghostty terminal, which draws the
+// Fish in Fine Detail.
+func inTerminal(vars ...string) option {
+	return func(h *harness) {
+		h.env = map[string]string{}
+		for i := 0; i+1 < len(vars); i += 2 {
+			h.env[vars[i]] = vars[i+1]
+		}
+	}
+}
+
 // at launches with the fake clock at t.
 func at(t time.Time) option { return func(h *harness) { h.clock.now = t } }
 
@@ -89,7 +102,7 @@ func withSeed(seed uint64) option { return func(h *harness) { h.seed = seed } }
 
 func newHarness(t *testing.T, opts ...option) *harness {
 	t.Helper()
-	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1, species: fish.Clownfish}
+	h := &harness{t: t, clock: &fakeClock{now: start}, seed: 1, species: fish.Clownfish, env: map[string]string{"TERM_PROGRAM": "ghostty"}}
 	for _, o := range opts {
 		o(h)
 	}
@@ -101,6 +114,7 @@ func newHarness(t *testing.T, opts ...option) *harness {
 		Rand:       rand.New(rand.NewPCG(h.seed, 2)),
 		DataDir:    h.dataDir,
 		Monochrome: h.mono,
+		Getenv:     func(k string) string { return h.env[k] },
 	})
 	h.model, h.last = m, m.Init()
 	t.Cleanup(func() { h.model.(app.Model).Close() })
@@ -232,10 +246,21 @@ var (
 const tearColour = "#7fd4ff"
 
 // isFishCell reports whether the character c is part of the Fish: the Fish
-// is drawn in sextants (U+1FB00 to U+1FB3B) and ▌▐█, and nothing else is.
-func isFishCell(c string) bool {
+// is drawn in sextants and ▌▐█ in Fine Detail, and in quadrants in Coarse,
+// and nothing else is.
+func isFishCell(c string) bool { return isSextant(c) || isQuadrant(c) }
+
+// isSextant reports whether c is one of Fine Detail's own characters, the
+// sextants U+1FB00 to U+1FB3B.
+func isSextant(c string) bool {
 	r, _ := utf8.DecodeRuneInString(c)
-	return r >= 0x1FB00 && r <= 0x1FB3B || c == "▌" || c == "▐" || c == "█"
+	return r >= 0x1FB00 && r <= 0x1FB3B
+}
+
+// isQuadrant reports whether c fills some of a cell's 2×2 quarters, as Coarse
+// Detail draws: one of ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█, which nearly every font has.
+func isQuadrant(c string) bool {
+	return utf8.RuneCountInString(c) == 1 && strings.Contains("▘▝▀▖▌▞▛▗▚▐▜▄▙▟█", c)
 }
 
 // fishCells are the cells the Fish is drawn in, as col, row pairs.
@@ -373,7 +398,7 @@ func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
 		}
 		x0, y0, x1, y1 := eyeArea(art, body, left)
 		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
-		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeHole(rows, art, s.left, s.top, left)
+		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeHole(rows, art, s.left, s.top, left, 3)
 		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) || mono {
 			s.facingLeft = left
 			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
@@ -433,34 +458,47 @@ func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
 }
 
 // filled reports whether the Fish's pixel x, y is filled, counting pixels
-// from the window's top-left, 2 to a cell across and 3 down.
-func filled(rows []string, x, y int) bool {
-	if x < 0 || y < 0 || y/3 >= len(rows) {
+// from the window's top-left, 2 to a cell across and down down: 3 in Fine
+// Detail, 2 in Coarse.
+func filled(rows []string, x, y, down int) bool {
+	if x < 0 || y < 0 || y/down >= len(rows) {
 		return false
 	}
-	row := cells(rows[y/3])
+	row := cells(rows[y/down])
 	if x/2 >= len(row) || !isFishCell(row[x/2]) {
 		return false
 	}
-	return sextantMask(row[x/2])&(1<<(y%3*2+x%2)) != 0
+	mask := sextantMask(row[x/2])
+	if down == 2 {
+		mask = quadrantMask(row[x/2])
+	}
+	return mask&(1<<(y%down*2+x%2)) != 0
+}
+
+// quadrantMask is which of a cell's 2×2 pixels the quadrant c fills: bits
+// run left to right, top to bottom, top-left 1, top-right 2, bottom-left 4,
+// bottom-right 8.
+func quadrantMask(c string) int {
+	return max(slices.Index([]rune(" ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█"), []rune(c)[0]), 0)
 }
 
 // eyeHole reports whether the Fish drawn as art, whose box's top-left is
 // left, top, has its eye as a hole in its silhouette: the eye's middle
 // pixel is clear, with the Fish filled to either side of it, above and
-// below.
-func eyeHole(rows []string, art fish.Art, left, top int, facingLeft bool) bool {
+// below. down is how many pixels a cell has down: 3 in Fine Detail, 2 in
+// Coarse.
+func eyeHole(rows []string, art fish.Art, left, top int, facingLeft bool, down int) bool {
 	ex := art.Eye.X
 	if facingLeft {
 		ex = art.W - ex
 	}
-	x, y := 2*left+int(2*ex-0.5), 3*top+int(1.5*art.Eye.Y-0.5)
-	if filled(rows, x, y) {
+	x, y := 2*left+int(2*ex-0.5), down*top+int(float64(down)/2*art.Eye.Y-0.5)
+	if filled(rows, x, y, down) {
 		return false
 	}
 	reach := func(dx, dy int) bool {
 		for i := 1; i < 6; i++ {
-			if filled(rows, x+i*dx, y+i*dy) {
+			if filled(rows, x+i*dx, y+i*dy, down) {
 				return true
 			}
 		}

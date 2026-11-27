@@ -55,6 +55,7 @@ func run() (int, error) {
 		Rand:       rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		DataDir:    dir,
 		Monochrome: monochrome(),
+		Getenv:     os.Getenv,
 	})
 	defer m.Close()
 	if code := m.ExitStatus(); code != 0 { // refused: no need to open the screen

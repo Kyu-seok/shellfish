@@ -34,6 +34,9 @@ type Deps struct {
 	// Monochrome draws without colour, for NO_COLOR or a terminal with too
 	// few colours to show the Fish.
 	Monochrome bool
+	// Getenv reads the terminal's environment variables, which tell which
+	// terminal the Tank is in.
+	Getenv func(string) string
 }
 
 // phase is what the app is doing, which decides what each key means and what
@@ -95,6 +98,10 @@ type Model struct {
 	byeUntil   time.Time     // when the farewell ends and the picker opens
 	foodKind   fish.FoodKind // what a click on the water or f drops
 	quitting   bool          // the user has closed the Tank
+	detail     render.Detail // how finely the Fish is drawn
+	terminal   string        // the terminal the Tank is in, which its Detail is remembered for
+	guessed    render.Detail // the Detail guessed for the terminal
+	hintUntil  time.Time     // when the hint for going back to Coarse goes away by itself
 }
 
 // New builds the app from its dependencies. It takes the data folder's lock,
@@ -105,6 +112,13 @@ type Model struct {
 func New(deps Deps) Model {
 	now := deps.Clock.Now()
 	m := Model{deps: deps, now: now, lastSaved: now}
+	m.terminal, m.guessed = render.GuessDetail(deps.Getenv)
+	m.detail = m.guessed
+	if s, ok := store.LoadDetail(deps.DataDir, m.terminal); ok {
+		if d, ok := render.ParseDetail(s); ok {
+			m.detail = d
+		}
+	}
 	lock, err := store.Acquire(deps.DataDir)
 	if err != nil {
 		if errors.Is(err, store.ErrLocked) {
@@ -294,6 +308,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.refusal != "" {
 			return m, tea.Quit
 		}
+		m.hintUntil = time.Time{}                     // any key takes the hint down
+		if msg.String() == "d" && m.phase != naming { // while naming, d is a letter
+			return m.switchDetail(), nil
+		}
 		switch m.phase {
 		case picking, pickingForSaved:
 			return m.updatePicking(msg)
@@ -355,7 +373,7 @@ func (m Model) tankShown() bool {
 
 // look is how the Fish is drawn now.
 func (m Model) look() render.Look {
-	return render.Look{Art: m.species().Art(), Mood: m.shown().Mood(), Monochrome: m.deps.Monochrome}
+	return render.Look{Art: m.species().Art(), Mood: m.shown().Mood(), Monochrome: m.deps.Monochrome, Detail: m.detail}
 }
 
 // View draws the Tank to fill the window, with the status line below it,
@@ -382,6 +400,7 @@ func (m Model) View() string {
 			Age:        m.fish.Age(m.now),
 			Food:       m.foodKind,
 			SaveFailed: m.saveErr != nil,
+			DetailHint: m.now.Before(m.hintUntil),
 		},
 	}
 	switch m.phase {
@@ -513,4 +532,16 @@ func (m Model) release() Model {
 		m.tank.Clear() // the picker shows a new Fish in a fresh Tank
 	}
 	return m.startPicking(picking)
+}
+
+// switchDetail switches how finely the Fish is drawn, and remembers it for
+// this terminal. Failing to remember it costs only a press of d next time,
+// so it is not shown.
+func (m Model) switchDetail() Model {
+	m.detail = m.detail.Other()
+	if m.detail == render.Fine && m.guessed == render.Coarse {
+		m.hintUntil = m.now.Add(DetailHintDuration) // it may show as boxes
+	}
+	_ = store.SaveDetail(m.deps.DataDir, m.terminal, m.detail.String())
+	return m
 }

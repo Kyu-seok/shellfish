@@ -60,6 +60,9 @@ type Status struct {
 	Food fish.FoodKind
 	// SaveFailed is set while the Fish can't be saved.
 	SaveFailed bool
+	// DetailHint is set while the hint for going back to Coarse is up, just
+	// after the user picked Fine in a terminal that may not show it.
+	DetailHint bool
 }
 
 // Screen draws the open Tank as rows of exactly its width, with the
@@ -73,6 +76,9 @@ func Screen(sc Scene) string {
 	bottom := statusLine(sc.Status, sc.Tank.Width)
 	if sc.Bottom != nil {
 		bottom = sc.Bottom.line(sc.Status, sc.Tank.Width)
+	}
+	if sc.Status.DetailHint {
+		bottom = fit(" "+detailHint, sc.Tank.Width)
 	}
 	return strings.Join(append(water, bottom), "\n")
 }
@@ -154,6 +160,10 @@ const (
 
 // saveFailed takes the key hint's place while the Fish can't be saved.
 const saveFailed = "⚠ couldn't save"
+
+// detailHint takes the whole bottom line's place just after the user picks Fine in a
+// terminal that may not show it, as boxes.
+const detailHint = "Boxes instead of a fish? Press d for Coarse"
 
 // statusLine is exactly width cells: the Fish's facts on the left and a
 // faint key hint at the right end, which shortens, then makes way, when there

@@ -32,6 +32,9 @@ Usage:
   shellfish            open the Tank
   shellfish --version  print the version
   shellfish --help     print this help
+
+In the Tank, d switches the Fish between Fine and Coarse Detail. Coarse is
+for terminals whose font shows the Fine Fish as boxes.
 `
 	inv := app.Invoke([]string{"--help"}, "v1.2.3")
 	if inv.Open || inv.Status != 0 || inv.Out != want || inv.Err != "" {

@@ -1,6 +1,6 @@
 # The Fish is drawn in sextant pixels, from shapes
 
-Visuals are what this project is for, so the Fish is pixel art at the finest resolution a terminal cell reliably gives: sextant characters (U+1FB00 block, 2×3 pixels per cell). Each Species is stored as shapes (ellipses and polygons) and drawn into sextants every frame. Drawing shapes live is what gives the tail its smooth swish and lets the eye show each Mood and blinks without a separate frame for each. A cell holds only a foreground and a background colour, so where a third colour falls in a cell it is replaced by the nearer of the two most common. Fonts without sextants show boxes in their place; we accept that.
+Visuals are what this project is for, so the Fish is pixel art at the finest resolution a terminal cell reliably gives: sextant characters (U+1FB00 block, 2×3 pixels per cell). Each Species is stored as shapes (ellipses and polygons) and drawn into sextants every frame. Drawing shapes live is what gives the tail its smooth swish and lets the eye show each Mood and blinks without a separate frame for each. A cell holds only a foreground and a background colour, so where a third colour falls in a cell it is replaced by the nearer of the two most common. Fonts without sextants show boxes in their place; we accepted that until ADR 0004, which adds a Coarse Detail for them.
 
 ## Considered Options
 

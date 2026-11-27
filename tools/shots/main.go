@@ -116,9 +116,18 @@ type session struct {
 	seed  uint64
 }
 
-// launch opens the app on dir at the clock's time.
+// launch opens the app on dir at the clock's time, as in Ghostty, so the Fish
+// is drawn in Fine Detail: the README pictures show it at its finest.
 func launch(dir string, c *clock, seed uint64) *session {
-	m := app.New(app.Deps{Clock: c, Rand: rand.New(rand.NewPCG(seed, 2)), DataDir: dir})
+	m := app.New(app.Deps{
+		Clock: c, Rand: rand.New(rand.NewPCG(seed, 2)), DataDir: dir,
+		Getenv: func(k string) string {
+			if k == "TERM_PROGRAM" {
+				return "ghostty"
+			}
+			return ""
+		},
+	})
 	return &session{clock: c, model: m, dir: dir, seed: seed}
 }
 

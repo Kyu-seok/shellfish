@@ -60,6 +60,10 @@ _Avoid_: Emotion, state, health
 How many days have passed since the Fish was named.
 _Avoid_: Level, lifetime
 
+**Detail**:
+How finely the Fish is drawn: Fine or Coarse. The Fish takes up the same space in the Tank either way; Coarse only shows less of its markings and eyes. Coarse is for terminals and fonts that cannot show Fine.
+_Avoid_: Size, resolution, blocks, mode, style
+
 **Scenery**:
 The fixed, non-living things that make up the Tank: seaweed, the sandy floor, shells and the water's surface. Bubbles, hearts and notes come and go, so they are not Scenery.
 _Avoid_: Decor, decorations, props, objects
