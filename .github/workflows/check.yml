@@ -14,9 +14,10 @@ jobs:
           go-version-file: go.mod
       - run: make check
 
-  # Builds everything a version would publish, and publishes nothing, so a
-  # broken config fails here instead of on a tag.
-  publish-dry-run:
+  # make publish-check: builds everything a version would publish, publishes
+  # nothing, and checks it with Homebrew and npm, so a broken config fails
+  # here instead of on a tag.
+  publish-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,20 +26,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: check
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --snapshot --clean
-        env:
-          TAP_GITHUB_TOKEN: unused # a snapshot pushes nothing
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node npm/build.mjs 0.0.0-snapshot dist dist/npm
-      - run: npm/publish.sh dist/npm --dry-run
+      - id: goreleaser
+        run: echo "version=$(make -s goreleaser-version)" >> "$GITHUB_OUTPUT"
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ steps.goreleaser.outputs.version }}
+          install-only: true
+      - run: make publish-check GORELEASER=goreleaser
+        env:
+          REQUIRE_BREW: "1" # the runner image has Homebrew; fail if it's gone

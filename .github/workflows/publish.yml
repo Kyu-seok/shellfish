@@ -32,10 +32,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - id: goreleaser
+        run: echo "version=$(make -s goreleaser-version)" >> "$GITHUB_OUTPUT"
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: ${{ steps.goreleaser.outputs.version }}
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
