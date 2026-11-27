@@ -18,7 +18,7 @@ Code goes in the module that owns its job:
 | `internal/tank` | The simulation: where the Fish, Food, bubbles and Scenery are and how they move, one time step at a time. |
 | `internal/render` | Everything drawn: the Tank from a snapshot, the status line, the greeting, and every screen that takes the Tank's place. Colour and monochrome are decided here. |
 | `internal/store` | The save file and the single-instance lock. |
-| `internal/app` | Wiring only: turning terminal messages and ticks into calls on the others, deciding when to save, and handing `render` a `Scene`. |
+| `internal/app` | Wiring only: turning the command line, terminal messages and ticks into calls on the others, deciding when to save, and handing `render` a `Scene`. |
 
 Flag a diff that draws, applies a Fish rule or simulates movement inside `internal/app`, or that makes one module reach into another's internals. `internal/app/app.go` is where this drift collects.
 
@@ -59,3 +59,9 @@ Why: in spec #1 helpers were scattered across four test files and the face strin
 A twin test (a Tank given X runs the same as one without it) only proves X is ignored if, in that same setup, X would act. Show it in the test or the commit message: the twins differ when the rule is broken.
 
 Why: in #24's review fixes, the Release twin test passed with the bug back in, because the Fish sat under the pointer and never started a trip.
+
+## Names the outside world keeps are decided in the spec
+
+A name that can't be changed once it ships (a published package, a tag format, a field or value in the save file) is spelled out in the spec. A diff that introduces one the spec leaves open is flagged, so the user decides it before merge.
+
+Why: in #25 the spec said `@kyu-seok/shellfish-<os>-<arch>`, and the build chose Node's names (`darwin-x64`, `win32-x64`) itself. Only the spec review raised it, and npm names are permanent once published.
