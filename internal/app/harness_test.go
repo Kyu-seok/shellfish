@@ -258,10 +258,25 @@ func isSextant(c string) bool {
 }
 
 // isQuadrant reports whether c fills some of a cell's 2×2 quarters, as Coarse
-// Detail draws: one of ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█, which nearly every font has.
-func isQuadrant(c string) bool {
-	return utf8.RuneCountInString(c) == 1 && strings.Contains("▘▝▀▖▌▞▛▗▚▐▜▄▙▟█", c)
+// Detail draws: one of quadrantGlyphs, which nearly every font has.
+func isQuadrant(c string) bool { return quadrantMask(c) > 0 }
+
+// quadrantGlyphs is the character for each 2×2 mask, bits running left to
+// right, top to bottom: top-left 1, top-right 2, bottom-left 4, bottom-right 8.
+var quadrantGlyphs = []rune(" ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█")
+
+// pixelReading is how a test reads the Fish's pixels in one Detail: how many
+// a cell has down (always 2 across), and which a character fills.
+type pixelReading struct {
+	down int
+	mask func(c string) int
 }
+
+// inFine and inCoarse read the Fish's pixels in Fine and Coarse Detail.
+var (
+	inFine   = pixelReading{3, sextantMask}
+	inCoarse = pixelReading{2, quadrantMask}
+)
 
 // fishCells are the cells the Fish is drawn in, as col, row pairs.
 func fishCells(rows []string) [][2]int {
@@ -398,7 +413,7 @@ func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
 		}
 		x0, y0, x1, y1 := eyeArea(art, body, left)
 		eye = colours(raw, s.left+x0, s.top+y0, s.left+x1, s.top+y1)
-		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeHole(rows, art, s.left, s.top, left, 3)
+		mono := len(colours(raw, minX, minY, maxX, maxY)) == 0 && eyeHole(rows, art, s.left, s.top, left, inFine)
 		if hasColour(eye, art.Eye.White) || hasColour(eye, art.Eye.Lid) || mono {
 			s.facingLeft = left
 			s.intact = maxY-minY+1 == body.Height && minX >= s.left && maxX < s.left+body.Width
@@ -458,47 +473,43 @@ func findSpecies(raw []string, sp fish.Species) (sighting, bool) {
 }
 
 // filled reports whether the Fish's pixel x, y is filled, counting pixels
-// from the window's top-left, 2 to a cell across and down down: 3 in Fine
-// Detail, 2 in Coarse.
-func filled(rows []string, x, y, down int) bool {
-	if x < 0 || y < 0 || y/down >= len(rows) {
+// from the window's top-left, 2 to a cell across and as many down as d reads.
+func filled(rows []string, x, y int, d pixelReading) bool {
+	if x < 0 || y < 0 || y/d.down >= len(rows) {
 		return false
 	}
-	row := cells(rows[y/down])
+	row := cells(rows[y/d.down])
 	if x/2 >= len(row) || !isFishCell(row[x/2]) {
 		return false
 	}
-	mask := sextantMask(row[x/2])
-	if down == 2 {
-		mask = quadrantMask(row[x/2])
-	}
-	return mask&(1<<(y%down*2+x%2)) != 0
+	return d.mask(row[x/2])&(1<<(y%d.down*2+x%2)) != 0
 }
 
-// quadrantMask is which of a cell's 2×2 pixels the quadrant c fills: bits
-// run left to right, top to bottom, top-left 1, top-right 2, bottom-left 4,
-// bottom-right 8.
+// quadrantMask is which of a cell's 2×2 pixels the character c fills, as
+// quadrantGlyphs numbers them, or 0 if c is not a quadrant.
 func quadrantMask(c string) int {
-	return max(slices.Index([]rune(" ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█"), []rune(c)[0]), 0)
+	if utf8.RuneCountInString(c) != 1 {
+		return 0
+	}
+	return max(slices.Index(quadrantGlyphs, []rune(c)[0]), 0)
 }
 
 // eyeHole reports whether the Fish drawn as art, whose box's top-left is
 // left, top, has its eye as a hole in its silhouette: the eye's middle
 // pixel is clear, with the Fish filled to either side of it, above and
-// below. down is how many pixels a cell has down: 3 in Fine Detail, 2 in
-// Coarse.
-func eyeHole(rows []string, art fish.Art, left, top int, facingLeft bool, down int) bool {
+// below, reading the pixels as d says.
+func eyeHole(rows []string, art fish.Art, left, top int, facingLeft bool, d pixelReading) bool {
 	ex := art.Eye.X
 	if facingLeft {
 		ex = art.W - ex
 	}
-	x, y := 2*left+int(2*ex-0.5), down*top+int(float64(down)/2*art.Eye.Y-0.5)
-	if filled(rows, x, y, down) {
+	x, y := 2*left+int(2*ex-0.5), d.down*top+int(float64(d.down)/2*art.Eye.Y-0.5)
+	if filled(rows, x, y, d) {
 		return false
 	}
 	reach := func(dx, dy int) bool {
 		for i := 1; i < 6; i++ {
-			if filled(rows, x+i*dx, y+i*dy, down) {
+			if filled(rows, x+i*dx, y+i*dy, d) {
 				return true
 			}
 		}

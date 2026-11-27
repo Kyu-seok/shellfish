@@ -18,29 +18,38 @@ const (
 	Coarse
 )
 
-// pixels is how many columns and rows of pixels a cell is split into, and
-// glyph the character for a cell with the pixels in mask filled.
-func (d Detail) pixels() (cols, rows int) {
-	if d == Coarse {
-		return 2, 2
-	}
-	return 2, 3
+// details is what each Detail is: its name, as it is remembered, how many
+// columns and rows of pixels it splits a cell into, and the character for a
+// cell with the pixels in a mask filled.
+var details = [...]struct {
+	name       string
+	cols, rows int
+	glyph      func(mask int) rune
+}{
+	Fine:   {"fine", 2, 3, sextant},
+	Coarse: {"coarse", 2, 2, func(mask int) rune { return quadrants[mask] }},
 }
 
-func (d Detail) glyph(mask int) rune {
-	if d == Coarse {
-		return quadrants[mask]
+func (d Detail) pixels() (cols, rows int) { return details[d].cols, details[d].rows }
+
+func (d Detail) glyph(mask int) rune { return details[d].glyph(mask) }
+
+// String is the Detail's name, as it is remembered: fine or coarse.
+func (d Detail) String() string { return details[d].name }
+
+// ParseDetail is the Detail named s, as String names it, or false if s
+// names none.
+func ParseDetail(s string) (Detail, bool) {
+	for d, x := range details {
+		if x.name == s {
+			return Detail(d), true
+		}
 	}
-	return sextant(mask)
+	return Fine, false
 }
 
 // Other is the Detail d switches to.
-func (d Detail) Other() Detail {
-	if d == Coarse {
-		return Fine
-	}
-	return Coarse
-}
+func (d Detail) Other() Detail { return (d + 1) % Detail(len(details)) }
 
 // quadrants is the character for each 2×2 mask, bits running left to right,
 // top to bottom: top-left 1, top-right 2, bottom-left 4, bottom-right 8.
@@ -163,24 +172,4 @@ func version(s string) ([]int, bool) {
 		}
 	}
 	return v, len(v) > 0
-}
-
-// String is the Detail's name, as it is remembered: fine or coarse.
-func (d Detail) String() string {
-	if d == Coarse {
-		return "coarse"
-	}
-	return "fine"
-}
-
-// ParseDetail is the Detail named s, as String names it, or false if s
-// names none.
-func ParseDetail(s string) (Detail, bool) {
-	switch s {
-	case "fine":
-		return Fine, true
-	case "coarse":
-		return Coarse, true
-	}
-	return Fine, false
 }

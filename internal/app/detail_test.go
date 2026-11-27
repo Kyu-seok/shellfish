@@ -270,12 +270,39 @@ func TestACoarseMonochromeFishStillHasAHoleForItsEye(t *testing.T) {
 		if !ok || !coarse(rows) {
 			t.Fatalf("frame %d: no Coarse Fish found in monochrome:\n%s", i, h.screen())
 		}
-		if !eyeHole(rows, art, s.left, s.top, s.facingLeft, 2) {
+		if !eyeHole(rows, art, s.left, s.top, s.facingLeft, inCoarse) {
 			t.Fatalf("frame %d: the Coarse Fish's eye is not a hole in its silhouette:\n%s", i, h.screen())
 		}
 		turned[s.facingLeft] = true
 	}
 	if len(turned) < 2 {
 		t.Error("the Fish never turned in 20 seconds, so only one way was checked")
+	}
+}
+
+func TestDChangesTheDetailWhileAskedToReleaseWithoutHidingTheQuestion(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, inTerminal("TERM_PROGRAM", "Apple_Terminal"), named("Bubbles"))
+	h.resize(80, 24)
+	h.press("r")
+	h.press("d") // Fine, where it may show as boxes
+	if coarse(h.view()) {
+		t.Errorf("d while asked to release left the Fish Coarse:\n%s", h.screen())
+	}
+	if !strings.Contains(h.statusLine(), "Release Bubbles to the sea?") {
+		t.Errorf("after d the release question is gone: %q", h.statusLine())
+	}
+}
+
+func TestDChangesTheDetailDuringTheFarewell(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, named("Bubbles"))
+	h.resize(80, 24)
+	h.press("r")
+	h.press("y")
+	h.advance(app.FrameInterval)
+	h.press("d")
+	if !coarse(h.view()) {
+		t.Errorf("d during the Farewell left the Fish Fine:\n%s", h.screen())
 	}
 }

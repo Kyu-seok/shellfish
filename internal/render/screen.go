@@ -77,7 +77,7 @@ func Screen(sc Scene) string {
 	if sc.Bottom != nil {
 		bottom = sc.Bottom.line(sc.Status, sc.Tank.Width)
 	}
-	if sc.Status.DetailHint {
+	if sc.Status.DetailHint && sc.Bottom == nil {
 		bottom = fit(" "+detailHint, sc.Tank.Width)
 	}
 	return strings.Join(append(water, bottom), "\n")
@@ -161,8 +161,9 @@ const (
 // saveFailed takes the key hint's place while the Fish can't be saved.
 const saveFailed = "⚠ couldn't save"
 
-// detailHint takes the whole bottom line's place just after the user picks Fine in a
-// terminal that may not show it, as boxes.
+// detailHint takes the whole status line's place, just after the user picks
+// Fine in a terminal that may show it as boxes. It gives way to the picker
+// and to a question, which matter more.
 const detailHint = "Boxes instead of a fish? Press d for Coarse"
 
 // statusLine is exactly width cells: the Fish's facts on the left and a

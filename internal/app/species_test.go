@@ -208,7 +208,7 @@ func TestEverySpeciesHasAHoleForItsEyeInMonochrome(t *testing.T) {
 			if !ok || !s.intact {
 				t.Fatalf("frame %d: no whole Fish found in monochrome:\n%s", i, strings.Join(rows, "\n"))
 			}
-			if !eyeHole(rows, sp.Art(), s.left, s.top, s.facingLeft, 3) {
+			if !eyeHole(rows, sp.Art(), s.left, s.top, s.facingLeft, inFine) {
 				t.Fatalf("frame %d: the Fish's eye is not a hole in its silhouette:\n%s", i, strings.Join(rows, "\n"))
 			}
 			turned[s.facingLeft] = true

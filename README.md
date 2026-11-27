@@ -57,7 +57,7 @@ There are ten Species to choose from. Here are six:
 
 The Tank needs a window of at least 30×10 and a terminal with 256 colours; with fewer, or with `NO_COLOR` set, the Fish is drawn as a silhouette. In tmux, turn on `set -g mouse on` for the mouse.
 
-The pictures here show the Fish in Fine Detail, drawn in sextant characters. Ghostty, kitty, WezTerm, foot, Alacritty, iTerm2 3.6.7 or later and other recent terminals draw those themselves, so the Tank opens Fine. Elsewhere, such as Terminal.app, older iTerm2, tmux or over ssh, the Fish starts in Coarse Detail, which every font can show. If your font has sextants (Iosevka, Cascadia Code, JuliaMono and others do), press `d` for Fine; your terminal remembers the choice. If the Fish turns to boxes, press `d` again.
+The pictures here show the Fish in Fine Detail, drawn in sextant characters. Ghostty, kitty, WezTerm, foot, Alacritty, iTerm2 3.6.7 or later and other recent terminals draw those themselves, so the Tank opens Fine. Elsewhere, such as Terminal.app, older iTerm2 or tmux, the Fish starts in Coarse Detail, which every font can show. If your font has sextants (Iosevka, Cascadia Code, JuliaMono and others do), press `d` for Fine; your terminal remembers the choice. If the Fish turns to boxes, press `d` again.
 
 `shellfish --version` and `shellfish --help` work any time, even while a Tank is open.
 
